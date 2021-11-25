@@ -24,7 +24,8 @@ func main() {
 	}
 
 	cfg := &fuse.MountConfig{
-		ReadOnly: false,
+		ReadOnly:                  false,
+		DisableDefaultPermissions: false,
 	}
 
 	// Mount the fuse.Server we created earlier
