@@ -44,6 +44,7 @@ type inodeInfo struct {
 }
 
 // We have a fixed directory structure
+// This is the structure we are working with. It is custom made.
 var gInodeInfo = map[fuseops.InodeID]inodeInfo{
 	// root
 	rootInode: inodeInfo{
