@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/JakWai01/sile-fystem/hellofs"
 	"github.com/jacobsa/fuse"
-	"github.com/jacobsa/fuse/samples/hellofs"
 	"github.com/jacobsa/timeutil"
 )
 
