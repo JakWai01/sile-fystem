@@ -70,7 +70,7 @@ type memFS struct {
 // default_permissions option.
 func NewMemFS(
 	uid uint32,
-	gid uint32) fuse.Server {
+	gid uint32) (fuse.Server, *memFS) {
 	// Set up the basic struct.
 	fs := &memFS{
 		inodes: make([]*inode, fuseops.RootInodeID+1),
@@ -90,7 +90,7 @@ func NewMemFS(
 	// Set up invariant checking.
 	fs.mu = syncutil.NewInvariantMutex(fs.checkInvariants)
 
-	return fuseutil.NewFileSystemServer(fs)
+	return fuseutil.NewFileSystemServer(fs), fs
 }
 
 ////////////////////////////////////////////////////////////////////////
