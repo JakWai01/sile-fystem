@@ -16,7 +16,7 @@ var fMountPoint = flag.String("mount_point", "", "Path to mount point.")
 func main() {
 	flag.Parse()
 
-	server, _ := memfs.NewMemFS(currentUid(), currentGid())
+	server := memfs.NewMemFS(currentUid(), currentGid())
 
 	// Mount the file system
 	if *fMountPoint == "" {
@@ -32,10 +32,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Mount: %v", err)
 	}
-
-	// fs.MkDir(context.Background(), &fuseops.MkDirOp{
-	// 	Name: "Cats",
-	// })
 
 	// Wait for it being unmounted
 	if err := mfs.Join(context.Background()); err != nil {
