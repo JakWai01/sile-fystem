@@ -71,6 +71,7 @@ type memFS struct {
 func NewMemFS(
 	uid uint32,
 	gid uint32) fuse.Server {
+	fmt.Println("NewMemFS")
 	// Set up the basic struct.
 	fs := &memFS{
 		inodes: make([]*inode, fuseops.RootInodeID+1),
@@ -98,6 +99,7 @@ func NewMemFS(
 ////////////////////////////////////////////////////////////////////////
 
 func (fs *memFS) checkInvariants() {
+	fmt.Println("checkInvariants")
 	// Check reserved inodes.
 	for i := 0; i < fuseops.RootInodeID; i++ {
 		if fs.inodes[i] != nil {
@@ -145,6 +147,7 @@ func (fs *memFS) checkInvariants() {
 //
 // LOCKS_REQUIRED(fs.mu)
 func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *inode {
+	fmt.Println("getInodeOrDie")
 	inode := fs.inodes[id]
 	if inode == nil {
 		panic(fmt.Sprintf("Unknown inode: %v", id))
@@ -158,6 +161,7 @@ func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *inode {
 // LOCKS_REQUIRED(fs.mu)
 func (fs *memFS) allocateInode(
 	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *inode) {
+	fmt.Println("allocateInode")
 	// Create the inode.
 	inode = newInode(attrs)
 
@@ -177,6 +181,7 @@ func (fs *memFS) allocateInode(
 
 // LOCKS_REQUIRED(fs.mu)
 func (fs *memFS) deallocateInode(id fuseops.InodeID) {
+	fmt.Println("deallocateInode")
 	fs.freeInodes = append(fs.freeInodes, id)
 	fs.inodes[id] = nil
 }
@@ -188,12 +193,14 @@ func (fs *memFS) deallocateInode(id fuseops.InodeID) {
 func (fs *memFS) StatFS(
 	ctx context.Context,
 	op *fuseops.StatFSOp) error {
+	fmt.Println("StatFS")
 	return nil
 }
 
 func (fs *memFS) LookUpInode(
 	ctx context.Context,
 	op *fuseops.LookUpInodeOp) error {
+	fmt.Println("LookUpInode")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -228,6 +235,7 @@ func (fs *memFS) LookUpInode(
 func (fs *memFS) GetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.GetInodeAttributesOp) error {
+	fmt.Println("GetInodeAttributes")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -251,6 +259,7 @@ func (fs *memFS) GetInodeAttributes(
 func (fs *memFS) SetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.SetInodeAttributesOp) error {
+	fmt.Println("SetInodeAttributes")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -281,9 +290,11 @@ func (fs *memFS) SetInodeAttributes(
 	return err
 }
 
+// This function is called when you create a directory
 func (fs *memFS) MkDir(
 	ctx context.Context,
 	op *fuseops.MkDirOp) error {
+	fmt.Println("MkDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -330,6 +341,7 @@ func (fs *memFS) MkDir(
 func (fs *memFS) MkNode(
 	ctx context.Context,
 	op *fuseops.MkNodeOp) error {
+	fmt.Println("MkNode")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -347,6 +359,7 @@ func (fs *memFS) createFile(
 	parentID fuseops.InodeID,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
+	fmt.Println("createFile")
 	// Grab the parent, which we will update shortly.
 	parent := fs.getInodeOrDie(parentID)
 
@@ -392,6 +405,7 @@ func (fs *memFS) createFile(
 func (fs *memFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) (err error) {
+	fmt.Println("CreateFile")
 	if op.OpContext.Pid == 0 {
 		// CreateFileOp should have a valid pid in context.
 		return fuse.EINVAL
@@ -407,10 +421,10 @@ func (fs *memFS) CreateFile(
 func (fs *memFS) CreateSymlink(
 	ctx context.Context,
 	op *fuseops.CreateSymlinkOp) error {
+	fmt.Println("CreateSymlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
-
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -461,6 +475,7 @@ func (fs *memFS) CreateSymlink(
 func (fs *memFS) CreateLink(
 	ctx context.Context,
 	op *fuseops.CreateLinkOp) error {
+	fmt.Println("CreateLink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -504,6 +519,7 @@ func (fs *memFS) CreateLink(
 func (fs *memFS) Rename(
 	ctx context.Context,
 	op *fuseops.RenameOp) error {
+	fmt.Println("Rename")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -549,6 +565,7 @@ func (fs *memFS) Rename(
 func (fs *memFS) RmDir(
 	ctx context.Context,
 	op *fuseops.RmDirOp) error {
+	fmt.Println("RmDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -585,6 +602,7 @@ func (fs *memFS) RmDir(
 func (fs *memFS) Unlink(
 	ctx context.Context,
 	op *fuseops.UnlinkOp) error {
+	fmt.Println("Unlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -616,6 +634,7 @@ func (fs *memFS) Unlink(
 func (fs *memFS) OpenDir(
 	ctx context.Context,
 	op *fuseops.OpenDirOp) error {
+	fmt.Println("OpenDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -638,6 +657,7 @@ func (fs *memFS) OpenDir(
 func (fs *memFS) ReadDir(
 	ctx context.Context,
 	op *fuseops.ReadDirOp) error {
+	fmt.Println("ReadDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -657,6 +677,7 @@ func (fs *memFS) ReadDir(
 func (fs *memFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
+	fmt.Println("OpenFile")
 	if op.OpContext.Pid == 0 {
 		// OpenFileOp should have a valid pid in context.
 		return fuse.EINVAL
@@ -680,6 +701,7 @@ func (fs *memFS) OpenFile(
 func (fs *memFS) ReadFile(
 	ctx context.Context,
 	op *fuseops.ReadFileOp) error {
+	fmt.Println("ReadFile")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -705,6 +727,7 @@ func (fs *memFS) ReadFile(
 func (fs *memFS) WriteFile(
 	ctx context.Context,
 	op *fuseops.WriteFileOp) error {
+	fmt.Println("WriteFile")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -724,6 +747,7 @@ func (fs *memFS) WriteFile(
 func (fs *memFS) FlushFile(
 	ctx context.Context,
 	op *fuseops.FlushFileOp) (err error) {
+	fmt.Println("FlushFile")
 	if op.OpContext.Pid == 0 {
 		// FlushFileOp should have a valid pid in context.
 		return fuse.EINVAL
@@ -734,6 +758,7 @@ func (fs *memFS) FlushFile(
 func (fs *memFS) ReadSymlink(
 	ctx context.Context,
 	op *fuseops.ReadSymlinkOp) error {
+	fmt.Println("ReadSymlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -752,6 +777,7 @@ func (fs *memFS) ReadSymlink(
 
 func (fs *memFS) GetXattr(ctx context.Context,
 	op *fuseops.GetXattrOp) error {
+	fmt.Println("GetXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -776,6 +802,7 @@ func (fs *memFS) GetXattr(ctx context.Context,
 
 func (fs *memFS) ListXattr(ctx context.Context,
 	op *fuseops.ListXattrOp) error {
+	fmt.Println("ListXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -803,6 +830,7 @@ func (fs *memFS) ListXattr(ctx context.Context,
 
 func (fs *memFS) RemoveXattr(ctx context.Context,
 	op *fuseops.RemoveXattrOp) error {
+	fmt.Println("RemoveXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -821,6 +849,7 @@ func (fs *memFS) RemoveXattr(ctx context.Context,
 
 func (fs *memFS) SetXattr(ctx context.Context,
 	op *fuseops.SetXattrOp) error {
+	fmt.Println("SetXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -850,6 +879,7 @@ func (fs *memFS) SetXattr(ctx context.Context,
 
 func (fs *memFS) Fallocate(ctx context.Context,
 	op *fuseops.FallocateOp) error {
+	fmt.Println("Fallocate")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os/user"
 	"strconv"
@@ -34,10 +35,14 @@ func main() {
 		log.Fatalf("Mount: %v", err)
 	}
 
+	test := mfs.Dir()
+	fmt.Println(test)
+
 	// Wait for it being unmounted
 	if err := mfs.Join(context.Background()); err != nil {
 		log.Fatalf("Join %v", err)
 	}
+
 }
 
 func currentUid() uint32 {
