@@ -70,7 +70,7 @@ type memFS struct {
 // default_permissions option.
 func NewMemFS(
 	uid uint32,
-	gid uint32) fuse.Server {
+	gid uint32) (fuse.Server, *memFS) {
 	fmt.Println("NewMemFS")
 	// Set up the basic struct.
 	fs := &memFS{
@@ -91,7 +91,7 @@ func NewMemFS(
 	// Set up invariant checking.
 	fs.mu = syncutil.NewInvariantMutex(fs.checkInvariants)
 
-	return fuseutil.NewFileSystemServer(fs)
+	return fuseutil.NewFileSystemServer(fs), fs
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -232,6 +232,7 @@ func (fs *memFS) LookUpInode(
 	return nil
 }
 
+// Apparently this function is calle first on a reload
 func (fs *memFS) GetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.GetInodeAttributesOp) error {
@@ -290,11 +291,12 @@ func (fs *memFS) SetInodeAttributes(
 	return err
 }
 
-// This function is called when you create a directory
+// This function is called when you create a directory and creates the directory
 func (fs *memFS) MkDir(
 	ctx context.Context,
 	op *fuseops.MkDirOp) error {
 	fmt.Println("MkDir")
+	fmt.Printf("%+v\n", op)
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
