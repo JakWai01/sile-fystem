@@ -54,9 +54,7 @@ type fileSystem struct {
 // The supplied UID/GID pair will own the root inode. This file system does no
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
-func NewFileSystem(
-	uid uint32,
-	gid uint32) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32) fuse.Server {
 	fmt.Println("NewMemFS")
 	// Set up the basic struct.
 	fs := &fileSystem{
@@ -176,16 +174,12 @@ func (fs *fileSystem) deallocateInode(id fuseops.InodeID) {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fs *fileSystem) StatFS(
-	ctx context.Context,
-	op *fuseops.StatFSOp) error {
+func (fs *fileSystem) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
 	fmt.Println("StatFS")
 	return nil
 }
 
-func (fs *fileSystem) LookUpInode(
-	ctx context.Context,
-	op *fuseops.LookUpInodeOp) error {
+func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -219,9 +213,7 @@ func (fs *fileSystem) LookUpInode(
 }
 
 // Apparently this function is calle first on a reload
-func (fs *fileSystem) GetInodeAttributes(
-	ctx context.Context,
-	op *fuseops.GetInodeAttributesOp) error {
+func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fmt.Println("GetInodeAttributes")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -243,9 +235,7 @@ func (fs *fileSystem) GetInodeAttributes(
 	return nil
 }
 
-func (fs *fileSystem) SetInodeAttributes(
-	ctx context.Context,
-	op *fuseops.SetInodeAttributesOp) error {
+func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
 	fmt.Println("SetInodeAttributes")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -278,9 +268,7 @@ func (fs *fileSystem) SetInodeAttributes(
 }
 
 // This function is called when you create a directory and creates the directory
-func (fs *fileSystem) MkDir(
-	ctx context.Context,
-	op *fuseops.MkDirOp) error {
+func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fmt.Println("MkDir")
 	fmt.Printf("%+v\n", op)
 	if op.OpContext.Pid == 0 {
@@ -326,9 +314,7 @@ func (fs *fileSystem) MkDir(
 	return nil
 }
 
-func (fs *fileSystem) MkNode(
-	ctx context.Context,
-	op *fuseops.MkNodeOp) error {
+func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	fmt.Println("MkNode")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -343,10 +329,7 @@ func (fs *fileSystem) MkNode(
 }
 
 // LOCKS_REQUIRED(fs.mu)
-func (fs *fileSystem) createFile(
-	parentID fuseops.InodeID,
-	name string,
-	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
+func (fs *fileSystem) createFile(parentID fuseops.InodeID, name string, mode os.FileMode) (fuseops.ChildInodeEntry, error) {
 	fmt.Println("createFile")
 	// Grab the parent, which we will update shortly.
 	parent := fs.getInodeOrDie(parentID)
@@ -390,9 +373,7 @@ func (fs *fileSystem) createFile(
 	return entry, nil
 }
 
-func (fs *fileSystem) CreateFile(
-	ctx context.Context,
-	op *fuseops.CreateFileOp) (err error) {
+func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
 	fmt.Println("CreateFile")
 	if op.OpContext.Pid == 0 {
 		// CreateFileOp should have a valid pid in context.
@@ -406,9 +387,7 @@ func (fs *fileSystem) CreateFile(
 	return err
 }
 
-func (fs *fileSystem) CreateSymlink(
-	ctx context.Context,
-	op *fuseops.CreateSymlinkOp) error {
+func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
 	fmt.Println("CreateSymlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -460,9 +439,7 @@ func (fs *fileSystem) CreateSymlink(
 	return nil
 }
 
-func (fs *fileSystem) CreateLink(
-	ctx context.Context,
-	op *fuseops.CreateLinkOp) error {
+func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
 	fmt.Println("CreateLink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -504,9 +481,7 @@ func (fs *fileSystem) CreateLink(
 	return nil
 }
 
-func (fs *fileSystem) Rename(
-	ctx context.Context,
-	op *fuseops.RenameOp) error {
+func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -550,9 +525,7 @@ func (fs *fileSystem) Rename(
 	return nil
 }
 
-func (fs *fileSystem) RmDir(
-	ctx context.Context,
-	op *fuseops.RmDirOp) error {
+func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	fmt.Println("RmDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -587,9 +560,7 @@ func (fs *fileSystem) RmDir(
 	return nil
 }
 
-func (fs *fileSystem) Unlink(
-	ctx context.Context,
-	op *fuseops.UnlinkOp) error {
+func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 	fmt.Println("Unlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -619,9 +590,7 @@ func (fs *fileSystem) Unlink(
 	return nil
 }
 
-func (fs *fileSystem) OpenDir(
-	ctx context.Context,
-	op *fuseops.OpenDirOp) error {
+func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
 	fmt.Println("OpenDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -642,9 +611,7 @@ func (fs *fileSystem) OpenDir(
 	return nil
 }
 
-func (fs *fileSystem) ReadDir(
-	ctx context.Context,
-	op *fuseops.ReadDirOp) error {
+func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fmt.Println("ReadDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -662,9 +629,7 @@ func (fs *fileSystem) ReadDir(
 	return nil
 }
 
-func (fs *fileSystem) OpenFile(
-	ctx context.Context,
-	op *fuseops.OpenFileOp) error {
+func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
 	fmt.Println("OpenFile")
 	if op.OpContext.Pid == 0 {
 		// OpenFileOp should have a valid pid in context.
@@ -686,9 +651,7 @@ func (fs *fileSystem) OpenFile(
 	return nil
 }
 
-func (fs *fileSystem) ReadFile(
-	ctx context.Context,
-	op *fuseops.ReadFileOp) error {
+func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
 	fmt.Println("ReadFile")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -712,9 +675,7 @@ func (fs *fileSystem) ReadFile(
 	return err
 }
 
-func (fs *fileSystem) WriteFile(
-	ctx context.Context,
-	op *fuseops.WriteFileOp) error {
+func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fmt.Println("WriteFile")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -732,9 +693,7 @@ func (fs *fileSystem) WriteFile(
 	return err
 }
 
-func (fs *fileSystem) FlushFile(
-	ctx context.Context,
-	op *fuseops.FlushFileOp) (err error) {
+func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
 	fmt.Println("FlushFile")
 	if op.OpContext.Pid == 0 {
 		// FlushFileOp should have a valid pid in context.
@@ -743,9 +702,7 @@ func (fs *fileSystem) FlushFile(
 	return
 }
 
-func (fs *fileSystem) ReadSymlink(
-	ctx context.Context,
-	op *fuseops.ReadSymlinkOp) error {
+func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
 	fmt.Println("ReadSymlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -763,8 +720,7 @@ func (fs *fileSystem) ReadSymlink(
 	return nil
 }
 
-func (fs *fileSystem) GetXattr(ctx context.Context,
-	op *fuseops.GetXattrOp) error {
+func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
 	fmt.Println("GetXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -788,8 +744,7 @@ func (fs *fileSystem) GetXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *fileSystem) ListXattr(ctx context.Context,
-	op *fuseops.ListXattrOp) error {
+func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
 	fmt.Println("ListXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -816,8 +771,7 @@ func (fs *fileSystem) ListXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *fileSystem) RemoveXattr(ctx context.Context,
-	op *fuseops.RemoveXattrOp) error {
+func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp) error {
 	fmt.Println("RemoveXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -835,8 +789,7 @@ func (fs *fileSystem) RemoveXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *fileSystem) SetXattr(ctx context.Context,
-	op *fuseops.SetXattrOp) error {
+func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) error {
 	fmt.Println("SetXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -865,8 +818,7 @@ func (fs *fileSystem) SetXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *fileSystem) Fallocate(ctx context.Context,
-	op *fuseops.FallocateOp) error {
+func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) error {
 	fmt.Println("Fallocate")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
