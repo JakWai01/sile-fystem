@@ -12,7 +12,7 @@ import (
 )
 
 type inode struct {
-	// The current attributes fof this inode
+	// The current attributes for this inode
 	attrs fuseops.InodeAttributes
 
 	// For directories, entries describe the children of the directory
@@ -21,7 +21,7 @@ type inode struct {
 	// For files, contents contain the current contents of the file
 	contents []byte
 
-	// For symlinks, the target of the symlink.
+	// For symlinks, target is the target of the symlink.
 	//
 	// INVARIANT: If !isSymlink(), len(target) == 0
 	target string
@@ -117,7 +117,7 @@ func (in *inode) isFile() bool {
 	return !(in.isDir() || in.isSymlink())
 }
 
-// Return the index of the child within in.etnries, if it exists
+// Return the index of the child within in.entries, if it exists
 //
 // RREQUIRES: in.isDir()
 func (in *inode) findChild(name string) (i int, ok bool) {
