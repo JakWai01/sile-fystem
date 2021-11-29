@@ -56,7 +56,7 @@ type fileSystem struct {
 // default_permissions option.
 func NewFileSystem(
 	uid uint32,
-	gid uint32) (fuse.Server, *fileSystem) {
+	gid uint32) fuse.Server {
 	fmt.Println("NewMemFS")
 	// Set up the basic struct.
 	fs := &fileSystem{
@@ -77,7 +77,7 @@ func NewFileSystem(
 	// Set up invariant checking.
 	fs.mu = syncutil.NewInvariantMutex(fs.checkInvariants)
 
-	return fuseutil.NewFileSystemServer(fs), fs
+	return fuseutil.NewFileSystemServer(fs)
 }
 
 ////////////////////////////////////////////////////////////////////////
