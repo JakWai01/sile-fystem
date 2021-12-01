@@ -54,6 +54,7 @@ type fileSystem struct {
 // The supplied UID/GID pair will own the root inode. This file system does no
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
+
 func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 	fmt.Println("NewMemFS")
 	// Set up the basic struct.
@@ -829,4 +830,15 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 	inode := fs.getInodeOrDie(op.Inode)
 	inode.Fallocate(op.Mode, op.Offset, op.Length)
 	return nil
+}
+
+// Get the fully qualified path of Node
+func (fs *fileSystem) getPath(id fuseops.InodeID) (string, error) {
+	// This is the root inode
+	// root := fs.inodes[fuseops.RootInodeID]
+
+	// A DirEntry is just a wrapper for an InodeID. So we can get the whole tree out of the root at any point
+
+	// Search for ID and assemble path
+	return "", nil
 }
