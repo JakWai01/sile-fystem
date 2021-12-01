@@ -11,11 +11,14 @@ import (
 	"github.com/jacobsa/fuse/fuseutil"
 )
 
+// If inode contains a name, we can build a fully qualified tree
 type inode struct {
+	Name string
 	// The current attributes for this inode
 	attrs fuseops.InodeAttributes
 
 	// For directories, entries describe the children of the directory
+	// Entries contains a name
 	entries []fuseutil.Dirent
 
 	// For files, contents contain the current contents of the file
@@ -36,7 +39,7 @@ type inode struct {
 
 // Create a new inode with the supplied attributes, which need not to contain
 // time-related information (the inode object will take care of that)
-func newInode(attrs fuseops.InodeAttributes) *inode {
+func newInode(name string, attrs fuseops.InodeAttributes) *inode {
 	// Update time info
 	now := time.Now()
 	attrs.Mtime = now
@@ -44,6 +47,7 @@ func newInode(attrs fuseops.InodeAttributes) *inode {
 
 	// Create the object
 	return &inode{
+		Name:   name,
 		attrs:  attrs,
 		xattrs: make(map[string][]byte),
 	}
@@ -127,6 +131,7 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 
 	var e fuseutil.Dirent
 	for i, e = range in.entries {
+		fmt.Println(e.Name)
 		if e.Name == name {
 			return i, true
 		}

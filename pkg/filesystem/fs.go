@@ -54,7 +54,7 @@ type fileSystem struct {
 // The supplied UID/GID pair will own the root inode. This file system does no
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
-func NewFileSystem(uid uint32, gid uint32) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 	fmt.Println("NewMemFS")
 	// Set up the basic struct.
 	fs := &fileSystem{
@@ -70,7 +70,7 @@ func NewFileSystem(uid uint32, gid uint32) fuse.Server {
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = newInode(rootAttrs)
+	fs.inodes[fuseops.RootInodeID] = newInode(name, rootAttrs)
 
 	// Set up invariant checking.
 	fs.mu = syncutil.NewInvariantMutex(fs.checkInvariants)
@@ -143,11 +143,11 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 // Allocate a new inode, assigning it an ID that is not in use.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *fileSystem) allocateInode(
+func (fs *fileSystem) allocateInode(name string,
 	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *inode) {
 	fmt.Println("allocateInode")
 	// Create the inode.
-	inode = newInode(attrs)
+	inode = newInode(name, attrs)
 
 	// Re-use a free ID if possible. Otherwise mint a new one.
 	numFree := len(fs.freeInodes)
@@ -297,7 +297,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	}
 
 	// Allocate a child.
-	childID, child := fs.allocateInode(childAttrs)
+	childID, child := fs.allocateInode(op.Name, childAttrs)
 
 	// Add an entry in the parent.
 	parent.AddChild(childID, op.Name, fuseutil.DT_Directory)
@@ -355,7 +355,7 @@ func (fs *fileSystem) createFile(parentID fuseops.InodeID, name string, mode os.
 	}
 
 	// Allocate a child.
-	childID, child := fs.allocateInode(childAttrs)
+	childID, child := fs.allocateInode(name, childAttrs)
 
 	// Add an entry in the parent.
 	parent.AddChild(childID, name, fuseutil.DT_File)
@@ -419,7 +419,7 @@ func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymli
 	}
 
 	// Allocate a child.
-	childID, child := fs.allocateInode(childAttrs)
+	childID, child := fs.allocateInode(op.Name, childAttrs)
 
 	// Set up its target.
 	child.target = op.Target
