@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"syscall"
 	"time"
@@ -311,6 +312,8 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	// (since it also handles invalidation).
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
+
+	fs.getPath(childID)
 
 	return nil
 }
@@ -834,11 +837,28 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 
 // Get the fully qualified path of Node
 func (fs *fileSystem) getPath(id fuseops.InodeID) (string, error) {
-	// This is the root inode
-	// root := fs.inodes[fuseops.RootInodeID]
+	res, path, err := fs.searchChildren(fuseops.RootInodeID, id, fs.inodes[fuseops.RootInodeID].Name)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// A DirEntry is just a wrapper for an InodeID. So we can get the whole tree out of the root at any point
+	fmt.Printf("Found file: %v at path: %v", res, path)
 
-	// Search for ID and assemble path
 	return "", nil
+}
+
+// Bug when looking at multiple directories
+func (fs *fileSystem) searchChildren(id fuseops.InodeID, target fuseops.InodeID, path string) (string, string, error) {
+	node := fs.inodes[id]
+
+	for _, child := range node.entries {
+		if child.Inode == target {
+			return child.Name, path + "/" + child.Name, nil
+		} else {
+			return fs.searchChildren(child.Inode, target, path+"/"+child.Name)
+		}
+	}
+
+	// TODO: Add custom InodeNotFound error here
+	return "", "", nil
 }
