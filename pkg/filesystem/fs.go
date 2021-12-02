@@ -380,6 +380,8 @@ func (fs *fileSystem) createFile(parentID fuseops.InodeID, name string, mode os.
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	entry.EntryExpiration = entry.AttributesExpiration
 
+	fs.getPath(childID)
+
 	return entry, nil
 }
 
