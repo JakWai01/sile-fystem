@@ -16,6 +16,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type InodeNotFound struct{}
+
+func (e *InodeNotFound) Error() string {
+	return "Inode not found in FUSE"
+}
+
 type fileSystem struct {
 	fuseutil.NotImplementedFileSystem
 
@@ -835,30 +841,30 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 	return nil
 }
 
-// Get the fully qualified path of Node
+// Get the fully qualified path of a Node
 func (fs *fileSystem) getPath(id fuseops.InodeID) (string, error) {
-	res, path, err := fs.searchChildren(fuseops.RootInodeID, id, fs.inodes[fuseops.RootInodeID].Name)
+	path, err := fs.searchChildren(fuseops.RootInodeID, id, fs.inodes[fuseops.RootInodeID].Name)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Found file: %v at path: %v", res, path)
+	fmt.Printf("Found path: %v", path)
+	fmt.Println()
 
 	return "", nil
 }
 
-// Bug when looking at multiple directories
-func (fs *fileSystem) searchChildren(id fuseops.InodeID, target fuseops.InodeID, path string) (string, string, error) {
-	node := fs.inodes[id]
+func (fs *fileSystem) searchChildren(id fuseops.InodeID, target fuseops.InodeID, path string) (string, error) {
+	if id == target {
+		return path, nil
+	}
 
-	for _, child := range node.entries {
-		if child.Inode == target {
-			return child.Name, path + "/" + child.Name, nil
-		} else {
-			return fs.searchChildren(child.Inode, target, path+"/"+child.Name)
+	for _, child := range fs.inodes[id].entries {
+		currentPath, err := fs.searchChildren(child.Inode, target, path+"/"+child.Name)
+		if err == nil {
+			return currentPath, nil
 		}
 	}
 
-	// TODO: Add custom InodeNotFound error here
-	return "", "", nil
+	return "", &InodeNotFound{}
 }
