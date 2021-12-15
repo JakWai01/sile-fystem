@@ -1,7 +1,9 @@
 package filesystem
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -9,10 +11,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alphahorizonio/libentangle/pkg/networking"
+	entangle "github.com/alphahorizonio/libentangle/pkg/networking"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/jacobsa/syncutil"
+	"github.com/pion/webrtc/v3"
 	"golang.org/x/sys/unix"
 )
 
@@ -63,6 +68,41 @@ type fileSystem struct {
 // default_permissions option.
 
 func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
+	// Insert the receive code here. So when receiving a message, handle it here and call the file system functions from here
+	entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
+
+		// Call the Reader function which gets the msg.Data each time
+		log.Printf("Message: %s", msg.Data)
+
+		var f *os.File
+		var err error
+
+		var file networking.Message
+
+		if err = json.Unmarshal(msg.Data, &file); err != nil {
+			panic(err)
+		}
+
+		f, err = os.OpenFile("output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+
+		if bytes.Equal(file.Content, []byte("BOF")) {
+			f.Truncate(0)
+			f.Seek(0, 0)
+		} else if bytes.Equal(file.Content, []byte("EOF")) {
+			return
+		} else {
+			_, err := f.Write(file.Content)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+	})
+
 	fmt.Println("NewMemFS")
 	// Set up the basic struct.
 	fs := &fileSystem{
