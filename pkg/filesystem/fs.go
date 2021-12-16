@@ -775,6 +775,13 @@ func (fs *fileSystem) readDirHandler(ctx context.Context, op *fuseops.ReadDirOp)
 }
 
 func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
+	if err := fs.openFileHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) openFileHandler(ctx context.Context, op *fuseops.OpenFileOp) error {
 	fmt.Println("OpenFile")
 	if op.OpContext.Pid == 0 {
 		// OpenFileOp should have a valid pid in context.
