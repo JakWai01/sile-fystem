@@ -2,7 +2,6 @@ package api
 
 const (
 	OpcodeTransfer = "transfer"
-	OpcodeExec     = "exec"
 
 	FuncLookUpInode        = "lookupinode"
 	FuncGetInodeAttributes = "getinodeattributes"
