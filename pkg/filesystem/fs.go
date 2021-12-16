@@ -1,9 +1,7 @@
 package filesystem
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -11,13 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alphahorizonio/libentangle/pkg/networking"
-	entangle "github.com/alphahorizonio/libentangle/pkg/networking"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/jacobsa/syncutil"
-	"github.com/pion/webrtc/v3"
 	"golang.org/x/sys/unix"
 )
 
@@ -67,43 +62,48 @@ type fileSystem struct {
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
 
+// Use old function signature as wrapper
 func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
-	// Insert the receive code here. So when receiving a message, handle it here and call the file system functions from here
-	entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
 
-		// Call the Reader function which gets the msg.Data each time
-		log.Printf("Message: %s", msg.Data)
+	// This functions depends on the signaling server being online
+	// entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
 
-		var f *os.File
-		var err error
+	// 	// Introducte OpCodes
+	// 	// Opcode Execute, Transfer
+	// 	// Execute -> Function, Params (params is one struct)
+	// 	// Call the Reader function which gets the msg.Data each time
+	// 	log.Printf("Message: %s", msg.Data)
 
-		var file networking.Message
+	// 	var f *os.File
+	// 	var err error
 
-		if err = json.Unmarshal(msg.Data, &file); err != nil {
-			panic(err)
-		}
+	// 	var file networking.Message
 
-		f, err = os.OpenFile("output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
+	// 	if err = json.Unmarshal(msg.Data, &file); err != nil {
+	// 		panic(err)
+	// 	}
 
-		if bytes.Equal(file.Content, []byte("BOF")) {
-			f.Truncate(0)
-			f.Seek(0, 0)
-		} else if bytes.Equal(file.Content, []byte("EOF")) {
-			return
-		} else {
-			_, err := f.Write(file.Content)
-			if err != nil {
-				panic(err)
-			}
-		}
+	// 	f, err = os.OpenFile("output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	defer f.Close()
 
-	})
+	// 	if bytes.Equal(file.Content, []byte("BOF")) {
+	// 		f.Truncate(0)
+	// 		f.Seek(0, 0)
+	// 	} else if bytes.Equal(file.Content, []byte("EOF")) {
+	// 		return
+	// 	} else {
+	// 		_, err := f.Write(file.Content)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 	}
 
-	fmt.Println("NewMemFS")
+	// })
+
+	fmt.Println("NewSileFystem")
 	// Set up the basic struct.
 	fs := &fileSystem{
 		inodes: make([]*inode, fuseops.RootInodeID+1),
@@ -222,12 +222,21 @@ func (fs *fileSystem) deallocateInode(id fuseops.InodeID) {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fs *fileSystem) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
-	fmt.Println("StatFS")
+// func (fs *fileSystem) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
+// 	fmt.Println("StatFS")
+// 	return nil
+// }
+
+// From here on, send all method calls over WebRTC
+func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
+	if err := fs.lookUpInodeHandler(ctx, op); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
+func (fs *fileSystem) lookUpInodeHandler(ctx context.Context, op *fuseops.LookUpInodeOp) error {
+
 	fmt.Println("LookUpInode")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -262,6 +271,13 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 // Apparently this function is calle first on a reload
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
+	if err := fs.getInodeAttributesHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) getInodeAttributesHandler(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fmt.Println("GetInodeAttributes")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -284,6 +300,13 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 }
 
 func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
+	if err := fs.setInodeAttributesHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) setInodeAttributesHandler(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
 	fmt.Println("SetInodeAttributes")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -317,6 +340,13 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 
 // This function is called when you create a directory and creates the directory
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
+	if err := fs.mkDirHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) mkDirHandler(ctx context.Context, op *fuseops.MkDirOp) error {
 	fmt.Println("MkDir")
 	fmt.Printf("%+v\n", op)
 	if op.OpContext.Pid == 0 {
@@ -365,6 +395,13 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 }
 
 func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
+	if err := fs.mkNodeHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) mkNodeHandler(ctx context.Context, op *fuseops.MkNodeOp) error {
 	fmt.Println("MkNode")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -426,6 +463,13 @@ func (fs *fileSystem) createFile(parentID fuseops.InodeID, name string, mode os.
 }
 
 func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
+	if err := fs.createFileHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) createFileHandler(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
 	fmt.Println("CreateFile")
 	if op.OpContext.Pid == 0 {
 		// CreateFileOp should have a valid pid in context.
@@ -440,6 +484,13 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 }
 
 func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
+	if err := fs.createSymlinkHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) createSymlinkHandler(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
 	fmt.Println("CreateSymlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -492,6 +543,13 @@ func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymli
 }
 
 func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
+	if err := fs.createLinkHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) createLinkHandler(ctx context.Context, op *fuseops.CreateLinkOp) error {
 	fmt.Println("CreateLink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -534,6 +592,13 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 }
 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
+	if err := fs.renameHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) renameHandler(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -578,6 +643,13 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 }
 
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
+	if err := fs.rmDirHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) rmDirHandler(ctx context.Context, op *fuseops.RmDirOp) error {
 	fmt.Println("RmDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -613,6 +685,13 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 }
 
 func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
+	if err := fs.unlinkHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) unlinkHandler(ctx context.Context, op *fuseops.UnlinkOp) error {
 	fmt.Println("Unlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -643,6 +722,13 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 }
 
 func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
+	if err := fs.openDirHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) openDirHandler(ctx context.Context, op *fuseops.OpenDirOp) error {
 	fmt.Println("OpenDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -664,6 +750,13 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 }
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
+	if err := fs.readDirHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) readDirHandler(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fmt.Println("ReadDir")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -704,6 +797,13 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 }
 
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
+	if err := fs.readFileHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) readFileHandler(ctx context.Context, op *fuseops.ReadFileOp) error {
 	fmt.Println("ReadFile")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -728,6 +828,13 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 }
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
+	if err := fs.writeFileHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) writeFileHandler(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fmt.Println("WriteFile")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -746,6 +853,13 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 }
 
 func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
+	if err := fs.flushFileHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) flushFileHandler(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
 	fmt.Println("FlushFile")
 	if op.OpContext.Pid == 0 {
 		// FlushFileOp should have a valid pid in context.
@@ -755,6 +869,13 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 }
 
 func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
+	if err := fs.readSymlinkHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) readSymlinkHandler(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
 	fmt.Println("ReadSymlink")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -773,6 +894,13 @@ func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp
 }
 
 func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
+	if err := fs.getXattrHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) getXattrHandler(ctx context.Context, op *fuseops.GetXattrOp) error {
 	fmt.Println("GetXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -797,6 +925,13 @@ func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) erro
 }
 
 func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
+	if err := fs.listXattrHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) listXattrHandler(ctx context.Context, op *fuseops.ListXattrOp) error {
 	fmt.Println("ListXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -824,6 +959,13 @@ func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) er
 }
 
 func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp) error {
+	if err := fs.removeXattr(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) removeXattr(ctx context.Context, op *fuseops.RemoveXattrOp) error {
 	fmt.Println("RemoveXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -842,6 +984,13 @@ func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp
 }
 
 func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) error {
+	if err := fs.setXattrHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) setXattrHandler(ctx context.Context, op *fuseops.SetXattrOp) error {
 	fmt.Println("SetXattr")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -871,6 +1020,13 @@ func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) erro
 }
 
 func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) error {
+	if err := fs.fallocateHandler(ctx, op); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fs *fileSystem) fallocateHandler(ctx context.Context, op *fuseops.FallocateOp) error {
 	fmt.Println("Fallocate")
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL

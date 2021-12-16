@@ -49,7 +49,7 @@ func init() {
 	if err := viper.BindPFlags(mountCmd.PersistentFlags()); err != nil {
 		log.Fatal("could not bind flags:", err)
 	}
-	viper.SetEnvPrefix("airdrip")
+	viper.SetEnvPrefix("sile-fystem")
 	viper.AutomaticEnv()
 }
 
