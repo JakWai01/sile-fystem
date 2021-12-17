@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	api "github.com/JakWai01/sile-fystem/pkg/api/datachannel/v1"
+	entangle "github.com/alphahorizonio/libentangle/pkg/networking"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -206,6 +209,19 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	// ========================================================
+
+	request := api.NewLookUpInodeRequest(op.Parent)
+
+	byteArray, err := json.Marshal(request)
+	if err != nil {
+		panic(err)
+	}
+
+	entangle.Write(byteArray)
+
+	// Read response from channel
+
 	// Requires op.Parent, the parent id
 	// ========================================================
 	inode := fs.getInodeOrDie(op.Parent)
@@ -242,6 +258,19 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
+	// ==========================================
+
+	request := api.NewGetInodeAttributesRequest(op.Inode)
+
+	byteArray, err := json.Marshal(request)
+	if err != nil {
+		panic(err)
+	}
+
+	entangle.Write(byteArray)
+
+	// Read response from channel
 
 	// Provide an InodeID and send the request to the server. Receive the attributes
 	// ==========================================
@@ -303,6 +332,19 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
+	// =============================================================================
+
+	request := api.NewMkDirRequest(op.Parent, op.Name)
+
+	byteArray, err := json.Marshal(request)
+	if err != nil {
+		panic(err)
+	}
+
+	entangle.Write(byteArray)
+
+	// Read response from channel
 
 	// Required op.Parent, the parent id and the name of the folder, op.Name
 	// =============================================================================
@@ -632,6 +674,19 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	// ============================================
+
+	request := api.NewOpenDirRequest(op.Inode)
+
+	byteArray, err := json.Marshal(request)
+	if err != nil {
+		panic(err)
+	}
+
+	entangle.Write(byteArray)
+
+	// Read response from channel
+
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// inode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
@@ -656,6 +711,19 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
+	// ====================================
+
+	request := api.NewReadDirRequest(op.Inode)
+
+	byteArray, err := json.Marshal(request)
+	if err != nil {
+		panic(err)
+	}
+
+	entangle.Write(byteArray)
+
+	// Read response from channel
 
 	// ====================================
 	// Grab the directory. Require InodeID

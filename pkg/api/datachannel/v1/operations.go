@@ -64,6 +64,6 @@ func NewReadDirRequest(inodeID fuseops.InodeID) *ReadDirRequest {
 	return &ReadDirRequest{Message: Message{FuncReadDir}, InodeID: inodeID}
 }
 
-func NewMkDir(inodeID fuseops.InodeID, name string) *MkDirRequest {
+func NewMkDirRequest(inodeID fuseops.InodeID, name string) *MkDirRequest {
 	return &MkDirRequest{Message: Message{FuncMkDir}, InodeID: inodeID}
 }
