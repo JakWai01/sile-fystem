@@ -47,3 +47,23 @@ type ReadDirResponse struct {
 type MkDirResponse struct {
 	Message
 }
+
+func NewGetInodeAttributesRequest(inodeID fuseops.InodeID) *GetInodeAttributesRequest {
+	return &GetInodeAttributesRequest{Message: Message{FuncGetInodeAttributes}, InodeID: inodeID}
+}
+
+func NewLookUpInodeRequest(inodeID fuseops.InodeID) *LookUpInodeRequest {
+	return &LookUpInodeRequest{Message: Message{FuncLookUpInode}, InodeID: inodeID}
+}
+
+func NewOpenDirRequest(inodeID fuseops.InodeID) *OpenDirRequest {
+	return &OpenDirRequest{Message: Message{FuncOpenDir}, InodeID: inodeID}
+}
+
+func NewReadDirRequest(inodeID fuseops.InodeID) *ReadDirRequest {
+	return &ReadDirRequest{Message: Message{FuncReadDir}, InodeID: inodeID}
+}
+
+func NewMkDir(inodeID fuseops.InodeID, name string) *MkDirRequest {
+	return &MkDirRequest{Message: Message{FuncMkDir}, InodeID: inodeID}
+}
