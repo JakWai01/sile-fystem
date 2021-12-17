@@ -211,7 +211,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	// ========================================================
 
-	request := api.NewLookUpInodeRequest(op.Parent)
+	request := api.NewLookUpInodeRequest(op.Parent, op.Name)
 
 	byteArray, err := json.Marshal(request)
 	if err != nil {

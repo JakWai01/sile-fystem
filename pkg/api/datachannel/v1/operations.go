@@ -10,6 +10,7 @@ type GetInodeAttributesRequest struct {
 type LookUpInodeRequest struct {
 	Message
 	InodeID fuseops.InodeID
+	Name    string
 }
 
 type OpenDirRequest struct {
@@ -52,8 +53,8 @@ func NewGetInodeAttributesRequest(inodeID fuseops.InodeID) *GetInodeAttributesRe
 	return &GetInodeAttributesRequest{Message: Message{FuncGetInodeAttributes}, InodeID: inodeID}
 }
 
-func NewLookUpInodeRequest(inodeID fuseops.InodeID) *LookUpInodeRequest {
-	return &LookUpInodeRequest{Message: Message{FuncLookUpInode}, InodeID: inodeID}
+func NewLookUpInodeRequest(inodeID fuseops.InodeID, name string) *LookUpInodeRequest {
+	return &LookUpInodeRequest{Message: Message{FuncLookUpInode}, InodeID: inodeID, Name: name}
 }
 
 func NewOpenDirRequest(inodeID fuseops.InodeID) *OpenDirRequest {
@@ -65,5 +66,5 @@ func NewReadDirRequest(inodeID fuseops.InodeID) *ReadDirRequest {
 }
 
 func NewMkDirRequest(inodeID fuseops.InodeID, name string) *MkDirRequest {
-	return &MkDirRequest{Message: Message{FuncMkDir}, InodeID: inodeID}
+	return &MkDirRequest{Message: Message{FuncMkDir}, InodeID: inodeID, Name: name}
 }
