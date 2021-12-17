@@ -206,7 +206,8 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Grab the parent directory.
+	// Requires op.Parent, the parent id
+	// ========================================================
 	inode := fs.getInodeOrDie(op.Parent)
 
 	// Does the directory have an entry with the given name?
@@ -217,6 +218,8 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	// Grab the child.
 	child := fs.getInodeOrDie(childID)
+
+	// ========================================================
 
 	// Fill in the response.
 	op.Entry.Child = childID
@@ -230,7 +233,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	return nil
 }
 
-// Apparently this function is calle first on a reload
+// Apparently this function is called first on a reload
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fmt.Println("GetInodeAttributes")
 	if op.OpContext.Pid == 0 {
@@ -240,8 +243,13 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	// Provide an InodeID and send the request to the server. Receive the attributes
+	// ==========================================
+
 	// Grab the inode.
 	inode := fs.getInodeOrDie(op.Inode)
+
+	// ==========================================
 
 	// Fill in the response.
 	op.Attributes = inode.attrs
@@ -296,6 +304,8 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	// Required op.Parent, the parent id and the name of the folder, op.Name
+	// =============================================================================
 	// Grab the parent, which we will update shortly.
 	parent := fs.getInodeOrDie(op.Parent)
 
@@ -305,6 +315,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	if exists {
 		return fuse.EEXIST
 	}
+	// ============================================================================
 
 	// Set up attributes from the child.
 	childAttrs := fuseops.InodeAttributes{
@@ -624,7 +635,11 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// inode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
+
+	// Require INodeID
+	// ============================================
 	inode := fs.getInodeOrDie(op.Inode)
+	// ============================================
 
 	if !inode.isDir() {
 		panic("Found non-dir.")
@@ -642,8 +657,10 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Grab the directory.
+	// ====================================
+	// Grab the directory. Require InodeID
 	inode := fs.getInodeOrDie(op.Inode)
+	// ====================================
 
 	// Serve the request.
 	op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
