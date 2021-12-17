@@ -83,10 +83,35 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 		switch v.Opcode {
 		case api.FuncGetInodeAttributes:
+			var request api.GetInodeAttributesRequest
+			if err := json.Unmarshal(msg.Data, &request); err != nil {
+				panic(err)
+			}
+
 		case api.FuncLookUpInode:
+			var request api.LookUpInodeRequest
+			if err := json.Unmarshal(msg.Data, &request); err != nil {
+				panic(err)
+			}
+
 		case api.FuncOpenDir:
+			var request api.OpenDirRequest
+			if err := json.Unmarshal(msg.Data, &request); err != nil {
+				panic(err)
+			}
+
 		case api.FuncReadDir:
+			var request api.ReadDirRequest
+			if err := json.Unmarshal(msg.Data, &request); err != nil {
+				panic(err)
+			}
+
 		case api.FuncMkDir:
+			var request api.MkDirRequest
+			if err := json.Unmarshal(msg.Data, &request); err != nil {
+				panic(err)
+			}
+
 		}
 	})
 
