@@ -1,9 +1,7 @@
 package filesystem
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -11,14 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	api "github.com/JakWai01/sile-fystem/pkg/api/transfer/v1"
-	"github.com/alphahorizonio/libentangle/pkg/networking"
-	entangle "github.com/alphahorizonio/libentangle/pkg/networking"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/jacobsa/syncutil"
-	"github.com/pion/webrtc/v3"
 	"golang.org/x/sys/unix"
 )
 
@@ -72,75 +66,9 @@ type fileSystem struct {
 func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 	// This functions depends on the signaling server being online
-	entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
-
-		// Unmarshal into message struct
-		var v api.Message
-		if err := json.Unmarshal(msg.Data, &v); err != nil {
-			panic(err)
-		}
-
-		// Move the case bodies into seperate handler functions
-		switch v.Opcode {
-		case "transfer":
-			log.Printf("Message: %s", msg.Data)
-
-			var f *os.File
-			var err error
-
-			var file networking.Message
-
-			if err = json.Unmarshal(msg.Data, &file); err != nil {
-				panic(err)
-			}
-
-			f, err = os.OpenFile("output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				panic(err)
-			}
-			defer f.Close()
-
-			if bytes.Equal(file.Content, []byte("BOF")) {
-				f.Truncate(0)
-				f.Seek(0, 0)
-			} else if bytes.Equal(file.Content, []byte("EOF")) {
-				return
-			} else {
-				_, err := f.Write(file.Content)
-				if err != nil {
-					panic(err)
-				}
-			}
-
-		// Unmarshal and execute respective function
-		case "lookupinode":
-		case "getinodeattributes":
-		case "setinodeattributes":
-		case "mkdir":
-		case "mknode":
-		case "createfile":
-		case "createsymlink":
-		case "createlink":
-		case "rename":
-		case "rmdir":
-		case "unlink":
-		case "opendir":
-		case "readdir":
-		case "openfile":
-		case "readfile":
-		case "writefile":
-		case "flushfile":
-		case "readsymlink":
-		case "getxattr":
-		case "listxattr":
-		case "removexattr":
-		case "setxattr":
-		case "fallocate":
-		default:
-			panic(fmt.Sprintf("%v is no valid operation", v.Opcode))
-		}
-
-	})
+	// entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
+	// 	fmt.Println(msg.Data)
+	// })
 
 	fmt.Println("NewSileFystem")
 	// Set up the basic struct.
