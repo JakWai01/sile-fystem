@@ -6,7 +6,7 @@ import (
 	"os/user"
 	"strconv"
 
-	"github.com/JakWai01/sile-fystem/pkg/filesystem"
+	server "github.com/JakWai01/sile-fystem/pkg/server"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -21,7 +21,7 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		server := filesystem.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountPoint))
+		serve := server.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountPoint))
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
@@ -29,7 +29,7 @@ var mountCmd = &cobra.Command{
 		}
 
 		// Mount the fuse.Server we created earlier
-		mfs, err := fuse.Mount(viper.GetString(mountPoint), server, cfg)
+		mfs, err := fuse.Mount(viper.GetString(mountPoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
