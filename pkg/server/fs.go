@@ -110,7 +110,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			inode := fs.getInodeOrDie(request.InodeID)
 			fmt.Println(inode)
 
-			// Send back resulting inode
 			byteArray, err := json.Marshal(inode)
 			if err != nil {
 				panic(err)
@@ -126,7 +125,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			inode := fs.getInodeOrDie(request.InodeID)
 
-			// TODO: We need the name here
 			childID, _, ok := inode.LookUpChild(request.Name)
 			if !ok {
 				// Write Error: fuse.ENOENT
@@ -134,7 +132,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			child := fs.getInodeOrDie(childID)
 
-			// Send back resulting inode
 			byteArray, err := json.Marshal(child)
 			if err != nil {
 				panic(err)
@@ -149,7 +146,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			inode := fs.getInodeOrDie(request.InodeID)
 
-			// Send back resulting inode
 			byteArray, err := json.Marshal(inode)
 			if err != nil {
 				panic(err)
@@ -164,7 +160,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			inode := fs.getInodeOrDie(request.InodeID)
 
-			// Send resulting inode
 			byteArray, err := json.Marshal(inode)
 			if err != nil {
 				panic(err)
@@ -279,11 +274,6 @@ func (fs *fileSystem) deallocateInode(id fuseops.InodeID) {
 ////////////////////////////////////////////////////////////////////////
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
-
-// func (fs *fileSystem) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
-// 	fmt.Println("StatFS")
-// 	return nil
-// }
 
 // From here on, send all method calls over WebRTC
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {

@@ -89,7 +89,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 				panic(err)
 			}
 
-			// Write to channel
 			inodeChannel <- response
 
 		case api.FuncLookUpInode:
@@ -98,7 +97,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 				panic(err)
 			}
 
-			// Write to channel
 			inodeChannel <- response
 
 		case api.FuncOpenDir:
@@ -107,7 +105,6 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 				panic(err)
 			}
 
-			// Write to channel
 			inodeChannel <- response
 
 		case api.FuncReadDir:
@@ -116,12 +113,11 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 				panic(err)
 			}
 
-			// Write to channel
 			inodeChannel <- response
 
 		case api.FuncMkDir:
 
-			// Write to channel
+			// ...
 		}
 	})
 
@@ -244,11 +240,6 @@ func (fs *fileSystem) deallocateInode(id fuseops.InodeID) {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-// func (fs *fileSystem) StatFS(ctx context.Context, op *fuseops.StatFSOp) error {
-// 	fmt.Println("StatFS")
-// 	return nil
-// }
-
 // From here on, send all method calls over WebRTC
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
@@ -258,8 +249,6 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-
-	// ========================================================
 
 	request := api.NewLookUpInodeRequest(op.Parent, op.Name)
 
@@ -273,29 +262,9 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	response := <-inodeChannel
 
 	child := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
-	// Read response from channel
 
-	// Requires op.Parent, the parent id
-	// ========================================================
-	// inode := fs.getInodeOrDie(op.Parent)
-
-	// // Does the directory have an entry with the given name?
-	// childID, _, ok := inode.LookUpChild(op.Name)
-	// if !ok {
-	// 	return fuse.ENOENT
-	// }
-
-	// // Grab the child.
-	// child := fs.getInodeOrDie(childID)
-
-	// ========================================================
-
-	// Fill in the response.
-
-	// TODO: Add childID attribute
 	op.Entry.Child = response.ChildID
 
-	// Create a new object of the desired type with the fields of the other struct
 	op.Entry.Attributes = child.attrs
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
@@ -316,8 +285,6 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// ==========================================
-
 	request := api.NewGetInodeAttributesRequest(op.Inode)
 
 	byteArray, err := json.Marshal(request)
@@ -327,20 +294,10 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 	entangle.Write(byteArray)
 
-	// Read response from channel
 	response := <-inodeChannel
 
 	inode := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
 
-	// Provide an InodeID and send the request to the server. Receive the attributes
-	// ==========================================
-
-	// Grab the inode.
-	// inode := fs.getInodeOrDie(op.Inode)
-
-	// ==========================================
-
-	// Fill in the response.
 	op.Attributes = inode.attrs
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
@@ -734,8 +691,6 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// ============================================
-
 	request := api.NewOpenDirRequest(op.Inode)
 
 	byteArray, err := json.Marshal(request)
@@ -749,17 +704,9 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 	inode := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
 
-	// Read response from channel
-
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// inode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-
-	// Require INodeID
-	// ============================================
-	// inode := fs.getInodeOrDie(op.Inode)
-	// ============================================
-
 	if !inode.isDir() {
 		panic("Found non-dir.")
 	}
@@ -776,8 +723,6 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// ====================================
-
 	request := api.NewReadDirRequest(op.Inode)
 
 	byteArray, err := json.Marshal(request)
@@ -790,13 +735,6 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	response := <-inodeChannel
 
 	inode := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
-
-	// Read response from channel
-
-	// ====================================
-	// Grab the directory. Require InodeID
-	// inode := fs.getInodeOrDie(op.Inode)
-	// ====================================
 
 	// Serve the request.
 	op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
