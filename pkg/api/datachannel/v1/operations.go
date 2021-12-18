@@ -34,6 +34,7 @@ type GetInodeAttributesResponse struct {
 	Inode Inode
 }
 
+// TODO
 type LookUpInodeResponse struct {
 	Message
 }

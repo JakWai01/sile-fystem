@@ -14,22 +14,3 @@ type Inode struct {
 	Xattrs   map[string][]byte
 	ChildID  fuseops.InodeID
 }
-
-// type Dirent struct {
-// 	Offset fuseops.DirOffset
-// 	Inode  fuseops.InodeID
-// 	Name   string
-// 	Type   fuseutil.DirentType
-// }
-
-// type InodeAttributes struct {
-// 	Size   uint64
-// 	Nlink  uint32
-// 	Mode   os.FileMode
-// 	Atime  time.Time
-// 	Mtime  time.Time
-// 	Ctime  time.Time
-// 	Crtime time.Time
-// 	Uid    uint32
-// 	Gid    uint32
-// }
