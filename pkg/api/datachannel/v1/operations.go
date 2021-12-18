@@ -31,6 +31,7 @@ type MkDirRequest struct {
 
 type GetInodeAttributesResponse struct {
 	Message
+	Inode Inode
 }
 
 type LookUpInodeResponse struct {

@@ -109,7 +109,14 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			inode := fs.getInodeOrDie(request.InodeID)
 			fmt.Println(inode)
+
 			// Send back resulting inode
+			byteArray, err := json.Marshal(inode)
+			if err != nil {
+				panic(err)
+			}
+
+			entangle.Write(byteArray)
 
 		case api.FuncLookUpInode:
 			var request api.LookUpInodeRequest
@@ -126,10 +133,14 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			}
 
 			child := fs.getInodeOrDie(childID)
-			fmt.Println(child)
 
 			// Send back resulting inode
+			byteArray, err := json.Marshal(child)
+			if err != nil {
+				panic(err)
+			}
 
+			entangle.Write(byteArray)
 		case api.FuncOpenDir:
 			var request api.OpenDirRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
@@ -137,10 +148,14 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			}
 
 			inode := fs.getInodeOrDie(request.InodeID)
-			fmt.Println(inode)
 
 			// Send back resulting inode
+			byteArray, err := json.Marshal(inode)
+			if err != nil {
+				panic(err)
+			}
 
+			entangle.Write(byteArray)
 		case api.FuncReadDir:
 			var request api.ReadDirRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
@@ -148,8 +163,14 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			}
 
 			inode := fs.getInodeOrDie(request.InodeID)
-			fmt.Println(inode)
 
+			// Send resulting inode
+			byteArray, err := json.Marshal(inode)
+			if err != nil {
+				panic(err)
+			}
+
+			entangle.Write(byteArray)
 		case api.FuncMkDir:
 			var request api.MkDirRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {

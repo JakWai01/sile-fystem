@@ -16,6 +16,7 @@ import (
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/jacobsa/syncutil"
+	"github.com/pion/webrtc/v3"
 	"golang.org/x/sys/unix"
 )
 
@@ -64,16 +65,65 @@ type fileSystem struct {
 // The supplied UID/GID pair will own the root inode. This file system does no
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
+var (
+	inodeChannel chan api.Inode
+)
 
 // Use old function signature as wrapper
 func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 	// This functions depends on the signaling server being online
-
 	// Handles answers from server. A response is then written to a channel, the respective FileSystem function can work with.
-	// entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
-	// 	fmt.Println(msg.Data)
-	// })
+	entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
+		fmt.Println(msg.Data)
+
+		var v api.Message
+		if err := json.Unmarshal(msg.Data, &v); err != nil {
+			panic(err)
+		}
+
+		switch v.Opcode {
+		case api.FuncGetInodeAttributes:
+			var response api.Inode
+			if err := json.Unmarshal(msg.Data, &response); err != nil {
+				panic(err)
+			}
+
+			// Write to channel
+			inodeChannel <- response
+
+		case api.FuncLookUpInode:
+			var response api.Inode
+			if err := json.Unmarshal(msg.Data, &response); err != nil {
+				panic(err)
+			}
+
+			// Write to channel
+			inodeChannel <- response
+
+		case api.FuncOpenDir:
+			var response api.Inode
+			if err := json.Unmarshal(msg.Data, &response); err != nil {
+				panic(err)
+			}
+
+			// Write to channel
+			inodeChannel <- response
+
+		case api.FuncReadDir:
+			var response api.Inode
+			if err := json.Unmarshal(msg.Data, &response); err != nil {
+				panic(err)
+			}
+
+			// Write to channel
+			inodeChannel <- response
+
+		case api.FuncMkDir:
+
+			// Write to channel
+		}
+	})
 
 	fmt.Println("NewSileFystem")
 	// Set up the basic struct.
@@ -220,25 +270,30 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	entangle.Write(byteArray)
 
+	child := <-inodeChannel
 	// Read response from channel
 
 	// Requires op.Parent, the parent id
 	// ========================================================
-	inode := fs.getInodeOrDie(op.Parent)
+	// inode := fs.getInodeOrDie(op.Parent)
 
 	// Does the directory have an entry with the given name?
-	childID, _, ok := inode.LookUpChild(op.Name)
-	if !ok {
-		return fuse.ENOENT
-	}
+	// childID, _, ok := inode.LookUpChild(op.Name)
+	// if !ok {
+	// 	return fuse.ENOENT
+	// }
 
 	// Grab the child.
-	child := fs.getInodeOrDie(childID)
+	// child := fs.getInodeOrDie(childID)
 
 	// ========================================================
 
 	// Fill in the response.
+
+	// TODO: Add childID attribute
 	op.Entry.Child = childID
+
+	// Create a new object of the desired type with the fields of the other struct
 	op.Entry.Attributes = child.attrs
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants

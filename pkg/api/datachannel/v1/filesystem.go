@@ -10,8 +10,8 @@ import (
 
 type Inode struct {
 	Name     string
-	Attrs    fuseops.InodeAttributes
-	Entries  []fuseutil.Dirent
+	Attrs    InodeAttributes
+	Entries  []Dirent
 	Contents []byte
 	Target   string
 	Xattrs   map[string][]byte
