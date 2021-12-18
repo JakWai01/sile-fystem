@@ -50,7 +50,7 @@ type fileSystem struct {
 	// INVARIANT: For all i < fuseops.RootInodeID, inodes[i] == nil
 	// INVARIANT: inodes[fuseops.RootInodeID] != nil
 	// INVARIANT: inodes[fuseops.RootInodeID].isDir()
-	inodes []*inode // GUARDED_BY(mu)
+	inodes []*Inode // GUARDED_BY(mu)
 
 	// A list of inode IDs within inodes available for reuse, not including the
 	// reserved IDs less than fuseops.RootInodeID.
@@ -128,7 +128,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 	fmt.Println("NewSileFystem")
 	// Set up the basic struct.
 	fs := &fileSystem{
-		inodes: make([]*inode, fuseops.RootInodeID+1),
+		inodes: make([]*Inode, fuseops.RootInodeID+1),
 		uid:    uid,
 		gid:    gid,
 	}
@@ -200,7 +200,7 @@ func (fs *fileSystem) checkInvariants() {
 // Find the given inode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
+func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *Inode {
 	fmt.Println("getInodeOrDie")
 	inode := fs.inodes[id]
 	if inode == nil {
@@ -214,7 +214,7 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 //
 // LOCKS_REQUIRED(fs.mu)
 func (fs *fileSystem) allocateInode(name string,
-	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *inode) {
+	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *Inode) {
 	fmt.Println("allocateInode")
 	// Create the inode.
 	inode = newInode(name, attrs)
@@ -270,20 +270,22 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	entangle.Write(byteArray)
 
-	child := <-inodeChannel
+	response := <-inodeChannel
+
+	child := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
 	// Read response from channel
 
 	// Requires op.Parent, the parent id
 	// ========================================================
 	// inode := fs.getInodeOrDie(op.Parent)
 
-	// Does the directory have an entry with the given name?
+	// // Does the directory have an entry with the given name?
 	// childID, _, ok := inode.LookUpChild(op.Name)
 	// if !ok {
 	// 	return fuse.ENOENT
 	// }
 
-	// Grab the child.
+	// // Grab the child.
 	// child := fs.getInodeOrDie(childID)
 
 	// ========================================================
@@ -291,7 +293,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	// Fill in the response.
 
 	// TODO: Add childID attribute
-	op.Entry.Child = childID
+	op.Entry.Child = response.ChildID
 
 	// Create a new object of the desired type with the fields of the other struct
 	op.Entry.Attributes = child.attrs
@@ -326,12 +328,15 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	entangle.Write(byteArray)
 
 	// Read response from channel
+	response := <-inodeChannel
+
+	inode := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
 
 	// Provide an InodeID and send the request to the server. Receive the attributes
 	// ==========================================
 
 	// Grab the inode.
-	inode := fs.getInodeOrDie(op.Inode)
+	// inode := fs.getInodeOrDie(op.Inode)
 
 	// ==========================================
 
@@ -740,6 +745,10 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 	entangle.Write(byteArray)
 
+	response := <-inodeChannel
+
+	inode := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
+
 	// Read response from channel
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
@@ -748,7 +757,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 	// Require INodeID
 	// ============================================
-	inode := fs.getInodeOrDie(op.Inode)
+	// inode := fs.getInodeOrDie(op.Inode)
 	// ============================================
 
 	if !inode.isDir() {
@@ -778,11 +787,15 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	entangle.Write(byteArray)
 
+	response := <-inodeChannel
+
+	inode := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
+
 	// Read response from channel
 
 	// ====================================
 	// Grab the directory. Require InodeID
-	inode := fs.getInodeOrDie(op.Inode)
+	// inode := fs.getInodeOrDie(op.Inode)
 	// ====================================
 
 	// Serve the request.

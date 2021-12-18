@@ -6,14 +6,10 @@ import (
 	"os/user"
 	"strconv"
 
-	server "github.com/JakWai01/sile-fystem/pkg/server"
+	client "github.com/JakWai01/sile-fystem/pkg/server"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-const (
-	mountPoint = "mountpoint"
 )
 
 var mountCmd = &cobra.Command{
@@ -21,7 +17,7 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		serve := server.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountPoint))
+		serve := client.NewFileSystem(currentUid(), currentGid(), viper.GetString(Mountpoint))
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
@@ -29,7 +25,7 @@ var mountCmd = &cobra.Command{
 		}
 
 		// Mount the fuse.Server we created earlier
-		mfs, err := fuse.Mount(viper.GetString(mountPoint), serve, cfg)
+		mfs, err := fuse.Mount(viper.GetString(Mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
@@ -43,7 +39,7 @@ var mountCmd = &cobra.Command{
 }
 
 func init() {
-	mountCmd.PersistentFlags().String(mountPoint, "", "Mountpoint")
+	mountCmd.PersistentFlags().String(Mountpoint, "", "Mountpoint")
 
 	// Bind env variables
 	if err := viper.BindPFlags(mountCmd.PersistentFlags()); err != nil {

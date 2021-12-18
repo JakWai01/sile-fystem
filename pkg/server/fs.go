@@ -51,7 +51,7 @@ type fileSystem struct {
 	// INVARIANT: For all i < fuseops.RootInodeID, inodes[i] == nil
 	// INVARIANT: inodes[fuseops.RootInodeID] != nil
 	// INVARIANT: inodes[fuseops.RootInodeID].isDir()
-	inodes []*inode // GUARDED_BY(mu)
+	inodes []*Inode // GUARDED_BY(mu)
 
 	// A list of inode IDs within inodes available for reuse, not including the
 	// reserved IDs less than fuseops.RootInodeID.
@@ -72,7 +72,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 	fmt.Println("NewSileFystem")
 	// Set up the basic struct.
 	fs := &fileSystem{
-		inodes: make([]*inode, fuseops.RootInodeID+1),
+		inodes: make([]*Inode, fuseops.RootInodeID+1),
 		uid:    uid,
 		gid:    gid,
 	}
@@ -236,7 +236,7 @@ func (fs *fileSystem) checkInvariants() {
 // Find the given inode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
+func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *Inode {
 	fmt.Println("getInodeOrDie")
 	inode := fs.inodes[id]
 	if inode == nil {
@@ -250,7 +250,7 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 //
 // LOCKS_REQUIRED(fs.mu)
 func (fs *fileSystem) allocateInode(name string,
-	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *inode) {
+	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *Inode) {
 	fmt.Println("allocateInode")
 	// Create the inode.
 	inode = newInode(name, attrs)

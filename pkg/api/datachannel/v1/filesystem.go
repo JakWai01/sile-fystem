@@ -1,37 +1,35 @@
 package api
 
 import (
-	"os"
-	"time"
-
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 )
 
 type Inode struct {
 	Name     string
-	Attrs    InodeAttributes
-	Entries  []Dirent
+	Attrs    fuseops.InodeAttributes
+	Entries  []fuseutil.Dirent
 	Contents []byte
 	Target   string
 	Xattrs   map[string][]byte
+	ChildID  fuseops.InodeID
 }
 
-type Dirent struct {
-	Offset fuseops.DirOffset
-	Inode  fuseops.InodeID
-	Name   string
-	Type   fuseutil.DirentType
-}
+// type Dirent struct {
+// 	Offset fuseops.DirOffset
+// 	Inode  fuseops.InodeID
+// 	Name   string
+// 	Type   fuseutil.DirentType
+// }
 
-type InodeAttributes struct {
-	Size   uint64
-	Nlink  uint32
-	Mode   os.FileMode
-	Atime  time.Time
-	Mtime  time.Time
-	Ctime  time.Time
-	Crtime time.Time
-	Uid    uint32
-	Gid    uint32
-}
+// type InodeAttributes struct {
+// 	Size   uint64
+// 	Nlink  uint32
+// 	Mode   os.FileMode
+// 	Atime  time.Time
+// 	Mtime  time.Time
+// 	Ctime  time.Time
+// 	Crtime time.Time
+// 	Uid    uint32
+// 	Gid    uint32
+// }

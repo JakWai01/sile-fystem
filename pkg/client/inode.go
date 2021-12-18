@@ -12,7 +12,7 @@ import (
 )
 
 // If inode contains a name, we can build a fully qualified tree
-type inode struct {
+type Inode struct {
 	Name string
 	// The current attributes for this inode
 	attrs fuseops.InodeAttributes
@@ -39,21 +39,21 @@ type inode struct {
 
 // Create a new inode with the supplied attributes, which need not to contain
 // time-related information (the inode object will take care of that)
-func newInode(name string, attrs fuseops.InodeAttributes) *inode {
+func newInode(name string, attrs fuseops.InodeAttributes) *Inode {
 	// Update time info
 	now := time.Now()
 	attrs.Mtime = now
 	attrs.Crtime = now
 
 	// Create the object
-	return &inode{
+	return &Inode{
 		Name:   name,
 		attrs:  attrs,
 		xattrs: make(map[string][]byte),
 	}
 }
 
-func (in *inode) CheckInvariants() {
+func (in *Inode) CheckInvariants() {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	if !(in.attrs.Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {
 		panic(fmt.Sprintf("Unexpected mode: %v", in.attrs.Mode))
@@ -109,22 +109,22 @@ func (in *inode) CheckInvariants() {
 	return
 }
 
-func (in *inode) isDir() bool {
+func (in *Inode) isDir() bool {
 	return in.attrs.Mode&os.ModeDir != 0
 }
 
-func (in *inode) isSymlink() bool {
+func (in *Inode) isSymlink() bool {
 	return in.attrs.Mode&os.ModeSymlink != 0
 }
 
-func (in *inode) isFile() bool {
+func (in *Inode) isFile() bool {
 	return !(in.isDir() || in.isSymlink())
 }
 
 // Return the index of the child within in.entries, if it exists
 //
 // RREQUIRES: in.isDir()
-func (in *inode) findChild(name string) (i int, ok bool) {
+func (in *Inode) findChild(name string) (i int, ok bool) {
 	if !in.isDir() {
 		panic("findChild called on non-directory")
 	}
@@ -147,7 +147,7 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 // Returns the number of children of the directory
 //
 // REQUIRES: in.isDir()
-func (in *inode) Len() int {
+func (in *Inode) Len() int {
 	var n int
 	for _, e := range in.entries {
 		if e.Type != fuseutil.DT_Unknown {
@@ -161,7 +161,7 @@ func (in *inode) Len() int {
 // Find an entry for the given child name and return its inode ID
 //
 // REQUIRES: in.isDir()
-func (in *inode) LookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {
+func (in *Inode) LookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {
 	index, ok := in.findChild(name)
 	if ok {
 		id = in.entries[index].Inode
@@ -175,7 +175,7 @@ func (in *inode) LookUpChild(name string) (id fuseops.InodeID, typ fuseutil.Dire
 //
 // REQUIRES: in.isDir()
 // REQUIRES: dt != fuseutil.DT_Unknown
-func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
+func (in *Inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
 	var index int
 
 	// Update the modification time
@@ -210,7 +210,7 @@ func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentTyp
 //
 // REQUIRED: in.isDir()
 // REQUIRED: An entry for the given name exists
-func (in *inode) RemoveChild(name string) {
+func (in *Inode) RemoveChild(name string) {
 	// Update the modification time.
 	in.attrs.Mtime = time.Now()
 
@@ -230,7 +230,7 @@ func (in *inode) RemoveChild(name string) {
 // Server a ReadDir request.
 //
 // REQUIRES: in.isDir()
-func (in *inode) ReadDir(p []byte, offset int) int {
+func (in *Inode) ReadDir(p []byte, offset int) int {
 	if !in.isDir() {
 		panic("ReadDir called on non-directory.")
 	}
@@ -258,7 +258,7 @@ func (in *inode) ReadDir(p []byte, offset int) int {
 // Read from the files contents. See documentation for ioutil.ReaderAt
 //
 // REQUIRES: in.isFile()
-func (in *inode) ReadAt(p []byte, off int64) (int, error) {
+func (in *Inode) ReadAt(p []byte, off int64) (int, error) {
 	if !in.isFile() {
 		panic("ReadAt called on non-file.")
 	}
@@ -280,7 +280,7 @@ func (in *inode) ReadAt(p []byte, off int64) (int, error) {
 // Write to the files contents. See documentation for iotuil.WriteAt
 //
 // REQUIRES: in.isFile()
-func (in *inode) WriteAt(p []byte, off int64) (int, error) {
+func (in *Inode) WriteAt(p []byte, off int64) (int, error) {
 	if !in.isFile() {
 		panic("WriteAt called on non-file.")
 	}
@@ -308,7 +308,7 @@ func (in *inode) WriteAt(p []byte, off int64) (int, error) {
 }
 
 // Update attribtues from non-nil parameters
-func (in *inode) SetAttributes(size *uint64, mode *os.FileMode, mtime *time.Time) {
+func (in *Inode) SetAttributes(size *uint64, mode *os.FileMode, mtime *time.Time) {
 	// Updates the modification time
 	in.attrs.Mtime = time.Now()
 
@@ -339,7 +339,7 @@ func (in *inode) SetAttributes(size *uint64, mode *os.FileMode, mtime *time.Time
 	}
 }
 
-func (in *inode) Fallocate(mode uint32, offset uint64, length uint64) error {
+func (in *Inode) Fallocate(mode uint32, offset uint64, length uint64) error {
 	if mode != 0 {
 		return fuse.ENOSYS
 	}
