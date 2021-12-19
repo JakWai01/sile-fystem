@@ -37,17 +37,18 @@ func NewFileSystem(uid uint32, gid uint32) fuse.Server {
 	return fuseutil.NewFileSystemServer(fs)
 }
 
+// Looks for op.Name in op.Parent
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	info, err := fs.backend.Open("op.Parent")
+	file, err := fs.backend.Open("op.Parent")
 	if err != nil {
 		panic(err)
 	}
 
-	children, err := info.Readdir(-1)
+	children, err := file.Readdir(-1)
 	if err != nil {
 		panic(err)
 	}
@@ -79,8 +80,37 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	return nil
 }
 
+// Get attributes of op.InodeID
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fmt.Println("GetInodeAttributes")
+
+	// TODO: Work with absolute path
+	// We need to work with these InodeIDs and implement functions to receive
+	// the fully qualified path to said Inodes.
+	file, err := fs.backend.Open("op.Name")
+	if err != nil {
+		panic(err)
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	op.Attributes = fuseops.InodeAttributes{
+		Size: uint64(info.Size()),
+		// TODO
+		Nlink:  1,
+		Mode:   info.Mode(),
+		Atime:  info.ModTime(),
+		Mtime:  info.ModTime(),
+		Ctime:  info.ModTime(),
+		Crtime: info.ModTime(),
+		Uid:    fs.uid,
+		Gid:    fs.gid,
+	}
+
+	op.AttributesExpiration = time.Now().Add(356 * 24 * time.Hour)
 
 	return nil
 }
