@@ -213,6 +213,28 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
 	fmt.Println("OpenFile")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	// TODO: Work with absolute path
+	// We need to work with these InodeIDs and implement functions to receive
+	// the fully qualified path to said Inodes.
+	file, err := fs.backend.Open("op.Inode")
+	if err != nil {
+		panic(err)
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	if info.IsDir() {
+		panic("Found non-file.")
+	}
+
 	return nil
 }
 
