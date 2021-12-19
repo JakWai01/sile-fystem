@@ -167,6 +167,9 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		return fuse.EINVAL
 	}
 
+	// TODO: Work with absolute path
+	// We need to work with these InodeIDs and implement functions to receive
+	// the fully qualified path to said Inodes.
 	file, err := fs.backend.Open("op.Inode")
 	if err != nil {
 		panic(err)
@@ -186,6 +189,25 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fmt.Println("ReadDir")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	// TODO: Work with absolute path
+	// We need to work with these InodeIDs and implement functions to receive
+	// the fully qualified path to said Inodes.
+	file, err := fs.backend.Open("op.Inode")
+	if err != nil {
+		panic(err)
+	}
+
+	// TODO: Is this the right function?
+	op.BytesRead, err = file.ReadAt(op.Dst, int64(op.Offset))
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
 
