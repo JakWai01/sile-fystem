@@ -1,4 +1,4 @@
-package fuse
+package filesystem
 
 import (
 	"context"
@@ -7,9 +7,11 @@ import (
 	"io"
 	"time"
 
+	"github.com/JakWai01/sile-fystem/pkg/cache"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
+	"github.com/jacobsa/syncutil"
 	"github.com/spf13/afero"
 )
 
@@ -21,8 +23,10 @@ func (e *InodeNotFound) Error() string {
 
 type fileSystem struct {
 	inodes  map[fuseops.InodeID]string
-	backend afero.OsFs
+	backend afero.Fs
 	fuseutil.NotImplementedFileSystem
+
+	mu syncutil.InvariantMutex
 
 	uid uint32
 	gid uint32
@@ -33,12 +37,18 @@ type fileSystem struct {
 
 func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	fs := &fileSystem{
-		uid: uid,
-		gid: gid,
+		inodes:  make(map[fuseops.InodeID]string),
+		backend: cache.Cache(afero.NewOsFs(), root, 30000, "fusecache"),
+		uid:     uid,
+		gid:     gid,
 	}
 
 	// Build index to store fully qualified path of inode and its ID
 	fs.buildIndex(root)
+
+	fs.inodes[1] = root
+
+	fmt.Println(fs.inodes)
 
 	return fuseutil.NewFileSystemServer(fs)
 }
@@ -49,6 +59,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
+
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Parent))
 	if err != nil {
 		panic(err)
@@ -89,14 +100,22 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 // Get attributes of op.InodeID
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fmt.Println("GetInodeAttributes")
+	fmt.Printf("op.Inode: %v", op.Inode)
+	fmt.Println()
 
-	// TODO: Work with absolute path
-	// We need to work with these InodeIDs and implement functions to receive
-	// the fully qualified path to said Inodes.
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
@@ -106,7 +125,6 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	op.Attributes = fuseops.InodeAttributes{
 		Size: uint64(info.Size()),
 		// TODO
-		Nlink:  1,
 		Mode:   info.Mode(),
 		Atime:  info.ModTime(),
 		Mtime:  info.ModTime(),
@@ -348,6 +366,6 @@ func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
 	if path == "" {
 		panic(fmt.Sprintf("No inode using id: %v found!", id))
 	}
-
+	fmt.Println(fmt.Sprintf("Path: %v", path))
 	return path
 }
