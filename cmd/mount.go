@@ -21,7 +21,7 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		serve := client.NewFileSystem(currentUid(), currentGid())
+		serve := client.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpoint))
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,

@@ -1,8 +1,9 @@
-package client
+package fuse
 
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"time"
 
@@ -10,6 +11,10 @@ import (
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/spf13/afero"
+)
+
+var (
+	inodes map[string]uint32
 )
 
 type InodeNotFound struct{}
@@ -29,11 +34,13 @@ type fileSystem struct {
 // Some form of indexing is needed to create a tree of the current filesystem.
 // This is required to work with fully qualified file paths.
 
-func NewFileSystem(uid uint32, gid uint32) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	fs := &fileSystem{
 		uid: uid,
 		gid: gid,
 	}
+
+	fs.buildIndex(root)
 
 	return fuseutil.NewFileSystemServer(fs)
 }
@@ -301,4 +308,36 @@ func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) erro
 func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) error {
 	fmt.Println("Fallocate")
 	return nil
+}
+
+// Build index using the root node.
+func (fs *fileSystem) buildIndex(root string) error {
+	fmt.Println("buildIndex")
+
+	// Write current root to map
+	inodes[root] = hash(root)
+
+	file, err := fs.backend.Open(root)
+	if err != nil {
+		panic(err)
+	}
+
+	children, err := file.Readdir(-1)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, child := range children {
+		if child.IsDir() {
+			fs.buildIndex(root + "/" + child.Name())
+		}
+	}
+
+	return nil
+}
+
+func hash(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
 }
