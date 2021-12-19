@@ -22,5 +22,4 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(mountCmd)
-	rootCmd.AddCommand(serveCmd)
 }

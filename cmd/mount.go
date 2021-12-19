@@ -3,11 +3,17 @@ package cmd
 import (
 	"context"
 	"log"
+	"os/user"
+	"strconv"
 
-	client "github.com/JakWai01/sile-fystem/pkg/server"
+	client "github.com/JakWai01/sile-fystem/pkg/fuse"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	mountpoint = "mountpoint"
 )
 
 var mountCmd = &cobra.Command{
@@ -15,7 +21,7 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		serve := client.NewFileSystem(currentUid(), currentGid(), viper.GetString(Mountpoint))
+		serve := client.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpoint))
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
@@ -23,7 +29,7 @@ var mountCmd = &cobra.Command{
 		}
 
 		// Mount the fuse.Server we created earlier
-		mfs, err := fuse.Mount(viper.GetString(Mountpoint), serve, cfg)
+		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
@@ -37,7 +43,7 @@ var mountCmd = &cobra.Command{
 }
 
 func init() {
-	mountCmd.PersistentFlags().String(Mountpoint, "", "Mountpoint")
+	mountCmd.PersistentFlags().String(mountpoint, "", "Mountpoint")
 
 	// Bind env variables
 	if err := viper.BindPFlags(mountCmd.PersistentFlags()); err != nil {
@@ -45,4 +51,32 @@ func init() {
 	}
 	viper.SetEnvPrefix("sile-fystem")
 	viper.AutomaticEnv()
+}
+
+func currentUid() uint32 {
+	user, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+
+	uid, err := strconv.ParseUint(user.Uid, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+
+	return uint32(uid)
+}
+
+func currentGid() uint32 {
+	user, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+
+	gid, err := strconv.ParseUint(user.Gid, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+
+	return uint32(gid)
 }
