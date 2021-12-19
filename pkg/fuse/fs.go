@@ -13,10 +13,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-var (
-	inodes map[string]uint32
-)
-
 type InodeNotFound struct{}
 
 func (e *InodeNotFound) Error() string {
@@ -24,6 +20,7 @@ func (e *InodeNotFound) Error() string {
 }
 
 type fileSystem struct {
+	inodes  map[fuseops.InodeID]string
 	backend afero.OsFs
 	fuseutil.NotImplementedFileSystem
 
@@ -40,6 +37,7 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 		gid: gid,
 	}
 
+	// Build index to store fully qualified path of inode and its ID
 	fs.buildIndex(root)
 
 	return fuseutil.NewFileSystemServer(fs)
@@ -51,7 +49,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	file, err := fs.backend.Open("op.Parent")
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Parent))
 	if err != nil {
 		panic(err)
 	}
@@ -95,7 +93,7 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	file, err := fs.backend.Open("op.Name")
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
 	}
@@ -178,7 +176,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	file, err := fs.backend.Open("op.Inode")
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
 	}
@@ -205,7 +203,7 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	file, err := fs.backend.Open("op.Inode")
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
 	}
@@ -229,7 +227,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	file, err := fs.backend.Open("op.Inode")
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
 	}
@@ -256,7 +254,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	// TODO: Work with absolute path
 	// We need to work with these InodeIDs and implement functions to receive
 	// the fully qualified path to said Inodes.
-	file, err := fs.backend.Open("op.Inode")
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
 	}
@@ -315,7 +313,7 @@ func (fs *fileSystem) buildIndex(root string) error {
 	fmt.Println("buildIndex")
 
 	// Write current root to map
-	inodes[root] = hash(root)
+	fs.inodes[hash(root)] = root
 
 	file, err := fs.backend.Open(root)
 	if err != nil {
@@ -336,8 +334,20 @@ func (fs *fileSystem) buildIndex(root string) error {
 	return nil
 }
 
-func hash(s string) uint32 {
+func hash(s string) fuseops.InodeID {
 	h := fnv.New32a()
 	h.Write([]byte(s))
-	return h.Sum32()
+	return fuseops.InodeID(h.Sum32())
+}
+
+func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
+	fmt.Println("getFullyQualifiedPath")
+
+	path := fs.inodes[id]
+
+	if path == "" {
+		panic(fmt.Sprintf("No inode using id: %v found!", id))
+	}
+
+	return path
 }
