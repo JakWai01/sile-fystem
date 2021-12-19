@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/jacobsa/fuse"
@@ -240,7 +241,26 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
 	fmt.Println("ReadFile")
-	return nil
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	// TODO: Work with absolute path
+	// We need to work with these InodeIDs and implement functions to receive
+	// the fully qualified path to said Inodes.
+	file, err := fs.backend.Open("op.Inode")
+	if err != nil {
+		panic(err)
+	}
+
+	// TODO: Is this the right function?
+	op.BytesRead, err = file.ReadAt(op.Dst, int64(op.Offset))
+	if err == io.EOF {
+		return nil
+	}
+
+	return err
 }
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
