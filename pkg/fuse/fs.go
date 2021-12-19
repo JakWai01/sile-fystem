@@ -162,6 +162,25 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 
 func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
 	fmt.Println("OpenDir")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	file, err := fs.backend.Open("op.Inode")
+	if err != nil {
+		panic(err)
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	if !info.IsDir() {
+		panic("Found non-dir.")
+	}
+
 	return nil
 }
 
