@@ -92,7 +92,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 	// This functions depends on the signaling server being online
 
 	// Server has handlers to reply to client requests
-	entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
+	go entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
 		fmt.Println(msg.Data)
 
 		var v api.Message
@@ -102,6 +102,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 		switch v.Opcode {
 		case api.FuncGetInodeAttributes:
+			fmt.Println("server: received FuncGetInodeAttributes")
 			var request api.GetInodeAttributesRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
 				panic(err)
@@ -118,6 +119,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			entangle.Write(byteArray)
 
 		case api.FuncLookUpInode:
+			fmt.Println("server: received FuncLookUpInode")
 			var request api.LookUpInodeRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
 				panic(err)
@@ -139,6 +141,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			entangle.Write(byteArray)
 		case api.FuncOpenDir:
+			fmt.Println("server: received FuncOpenDir")
 			var request api.OpenDirRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
 				panic(err)
@@ -153,6 +156,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			entangle.Write(byteArray)
 		case api.FuncReadDir:
+			fmt.Println("server: received FuncReadDir")
 			var request api.ReadDirRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
 				panic(err)
@@ -167,6 +171,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 			entangle.Write(byteArray)
 		case api.FuncMkDir:
+			fmt.Println("server: received FuncMkDir")
 			var request api.MkDirRequest
 			if err := json.Unmarshal(msg.Data, &request); err != nil {
 				panic(err)
@@ -329,6 +334,7 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	// (since it also handles invalidation).
 	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 
+	fmt.Println("end GetInodeAttributes")
 	return nil
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/jacobsa/syncutil"
 	"github.com/pion/webrtc/v3"
+	"github.com/spf13/afero"
 	"golang.org/x/sys/unix"
 )
 
@@ -27,6 +28,7 @@ func (e *InodeNotFound) Error() string {
 }
 
 type fileSystem struct {
+	backend afero.Fs
 	fuseutil.NotImplementedFileSystem
 
 	// The UID and GID that every inode receives.
@@ -74,7 +76,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 	// This functions depends on the signaling server being online
 	// Handles answers from server. A response is then written to a channel, the respective FileSystem function can work with.
-	entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
+	go entangle.Connect("test", func(msg webrtc.DataChannelMessage) {
 		fmt.Println(msg.Data)
 
 		var v api.Message
@@ -84,6 +86,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 
 		switch v.Opcode {
 		case api.FuncGetInodeAttributes:
+			fmt.Println("client: received FuncGetInodeAttributes")
 			var response api.Inode
 			if err := json.Unmarshal(msg.Data, &response); err != nil {
 				panic(err)
@@ -92,6 +95,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			inodeChannel <- response
 
 		case api.FuncLookUpInode:
+			fmt.Println("client: received FuncLookUpInode")
 			var response api.Inode
 			if err := json.Unmarshal(msg.Data, &response); err != nil {
 				panic(err)
@@ -100,6 +104,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			inodeChannel <- response
 
 		case api.FuncOpenDir:
+			fmt.Println("client: received FuncOpenDir")
 			var response api.Inode
 			if err := json.Unmarshal(msg.Data, &response); err != nil {
 				panic(err)
@@ -108,6 +113,7 @@ func NewFileSystem(uid uint32, gid uint32, name string) fuse.Server {
 			inodeChannel <- response
 
 		case api.FuncReadDir:
+			fmt.Println("client: received FuncReadDir")
 			var response api.Inode
 			if err := json.Unmarshal(msg.Data, &response); err != nil {
 				panic(err)
@@ -242,35 +248,24 @@ func (fs *fileSystem) deallocateInode(id fuseops.InodeID) {
 
 // From here on, send all method calls over WebRTC
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
-	fmt.Println("LookUpInode")
-	if op.OpContext.Pid == 0 {
-		return fuse.EINVAL
-	}
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	request := api.NewLookUpInodeRequest(op.Parent, op.Name)
-
-	byteArray, err := json.Marshal(request)
+	info, err := fs.backend.Open("/mount-point/")
 	if err != nil {
 		panic(err)
 	}
 
-	entangle.Write(byteArray)
+	children, err := info.Readdir(-1)
+	if err != nil {
+		panic(err)
+	}
 
-	response := <-inodeChannel
-
-	child := Inode{Name: response.Name, attrs: response.Attrs, entries: response.Entries, contents: response.Contents, target: response.Target, xattrs: response.Xattrs}
-
-	op.Entry.Child = response.ChildID
-
-	op.Entry.Attributes = child.attrs
-
-	// We don't spontaneously mutate, so the kernel can cache as long as it wants
-	// (since it also handles invalidation).
-	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
-	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
+	for _, child := range children {
+		if child.Name() == op.Name {
+			op.Entry.Child = child
+			op.Entry.Attributes = fuseops.InodeAttributes{
+				Size: uin64(child.Size()),
+			}
+		}
+	}
 
 	return nil
 }
@@ -341,6 +336,8 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 
 // This function is called when you create a directory and creates the directory
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
+	fs.backend.Mkdir("test", op.Mode)
+
 	fmt.Println("MkDir")
 	fmt.Printf("%+v\n", op)
 	if op.OpContext.Pid == 0 {
