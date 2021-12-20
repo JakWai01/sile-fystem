@@ -32,19 +32,17 @@ type fileSystem struct {
 	gid uint32
 }
 
-// Some form of indexing is needed to create a tree of the current filesystem.
-// This is required to work with fully qualified file paths.
-
 func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]string),
-		backend: cache.Cache(afero.NewOsFs(), root, 30000, "fusecache"),
+		backend: cache.Cache(afero.NewOsFs(), root, 100*time.Second, "/tmp/fscache"),
 		uid:     uid,
 		gid:     gid,
 	}
 
 	// Build index to store fully qualified path of inode and its ID
-	fs.buildIndex(root)
+	// This should work using stfs
+	// fs.buildIndex(root)
 
 	fs.inodes[1] = root
 
@@ -54,11 +52,9 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 }
 
 // Looks for op.Name in op.Parent
+// This function is probably also used to assert an ID to each child on initilization
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
-	// TODO: Work with absolute path
-	// We need to work with these InodeIDs and implement functions to receive
-	// the fully qualified path to said Inodes.
 
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Parent))
 	if err != nil {
@@ -71,11 +67,9 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	}
 
 	for _, child := range children {
+		childPath := fs.getFullyQualifiedPath(op.Parent) + "/" + child.Name()
 		if child.Name() == op.Name {
-			// This is a 64-bit number used to uniquely identify a file or directory in the file system.
-			// File systems may mint inode IDs with any value except for RootInodeID.
-			// TODO
-			op.Entry.Child = 1
+			op.Entry.Child = hash(childPath)
 			op.Entry.Attributes = fuseops.InodeAttributes{
 				Size: uint64(child.Size()),
 				// TODO
@@ -191,9 +185,6 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		return fuse.EINVAL
 	}
 
-	// TODO: Work with absolute path
-	// We need to work with these InodeIDs and implement functions to receive
-	// the fully qualified path to said Inodes.
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
@@ -218,9 +209,6 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 		return fuse.EINVAL
 	}
 
-	// TODO: Work with absolute path
-	// We need to work with these InodeIDs and implement functions to receive
-	// the fully qualified path to said Inodes.
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
@@ -242,9 +230,6 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		return fuse.EINVAL
 	}
 
-	// TODO: Work with absolute path
-	// We need to work with these InodeIDs and implement functions to receive
-	// the fully qualified path to said Inodes.
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
@@ -269,9 +254,6 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 		return fuse.EINVAL
 	}
 
-	// TODO: Work with absolute path
-	// We need to work with these InodeIDs and implement functions to receive
-	// the fully qualified path to said Inodes.
 	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
 	if err != nil {
 		panic(err)
@@ -329,10 +311,12 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 // Build index using the root node.
 func (fs *fileSystem) buildIndex(root string) error {
 	fmt.Println("buildIndex")
-
+	fmt.Printf("current root: %v", root)
+	fmt.Println()
 	// Write current root to map
 	fs.inodes[hash(root)] = root
 
+	// This won't work for OsFs, since OsFs is not using absolute paths
 	file, err := fs.backend.Open(root)
 	if err != nil {
 		panic(err)
