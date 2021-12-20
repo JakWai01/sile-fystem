@@ -44,7 +44,7 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 
 	// Build index to store fully qualified path of inode and its ID
 	// If absolute paths are needed in the map, just pass the root as an argument.
-	fs.buildIndex("")
+	// fs.buildIndex("")
 
 	// The rootnode requires ID 1
 	fs.inodes[1] = ""
@@ -55,7 +55,6 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 }
 
 // Looks for op.Name in op.Parent
-// This function is probably also used to assert an ID to each child on initilization
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
 
@@ -64,14 +63,13 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	var optimizedPath string
 
-	if len(fs.getFullyQualifiedPath(op.Parent)) > 0 {
-		if fs.getFullyQualifiedPath(op.Parent)[0] == '/' {
-			optimizedPath = fs.getFullyQualifiedPath(op.Parent)[1:]
+	if len(fs.inodes[op.Parent]) > 0 {
+		if fs.inodes[op.Parent][0] == '/' {
+			optimizedPath = fs.inodes[op.Parent][1:]
 			fmt.Println(optimizedPath)
 		}
 	}
 
-	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
 	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
@@ -83,13 +81,10 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	}
 
 	for _, child := range children {
-		fmt.Sprintf("Fully qualified path of parent in LookUpInode: %v", fs.getFullyQualifiedPath(op.Parent))
-		childPath := fs.getFullyQualifiedPath(op.Parent) + "/" + child.Name()
 		if child.Name() == op.Name {
-			op.Entry.Child = hash(childPath)
+			op.Entry.Child = hash(child.Name())
 			op.Entry.Attributes = fuseops.InodeAttributes{
-				Size: uint64(child.Size()),
-				// TODO
+				Size:   uint64(child.Size()),
 				Nlink:  1,
 				Mode:   child.Mode(),
 				Atime:  child.ModTime(),
@@ -110,7 +105,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 // Get attributes of op.InodeID
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
-	fmt.Printf("GetInodeAttributes with op.Inode: %v and path: %v", op.Inode, fs.getFullyQualifiedPath(op.Inode))
+	fmt.Printf("GetInodeAttributes with op.Inode %v", op.Inode)
 	fmt.Println()
 
 	if op.OpContext.Pid == 0 {
@@ -125,14 +120,13 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 	var optimizedPath string
 
-	if len(fs.getFullyQualifiedPath(op.Inode)) > 0 {
-		if fs.getFullyQualifiedPath(op.Inode)[0] == '/' {
-			optimizedPath = fs.getFullyQualifiedPath(op.Inode)[1:]
+	if len(fs.inodes[op.Inode]) > 0 {
+		if fs.inodes[op.Inode][0] == '/' {
+			optimizedPath = fs.inodes[op.Inode][1:]
 			fmt.Println(optimizedPath)
 		}
 	}
 
-	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
 	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
@@ -145,8 +139,7 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	}
 
 	op.Attributes = fuseops.InodeAttributes{
-		Size: uint64(info.Size()),
-		// TODO
+		Size:   uint64(info.Size()),
 		Mode:   info.Mode(),
 		Atime:  info.ModTime(),
 		Mtime:  info.ModTime(),
@@ -176,22 +169,18 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	fmt.Sprintf("Parent ID: %v", op.Parent)
-	// Grab the parent
-
 	var file afero.File
 	var err error
 
 	var optimizedPath string
 
-	if len(fs.getFullyQualifiedPath(op.Parent)) > 0 {
-		if fs.getFullyQualifiedPath(op.Parent)[0] == '/' {
-			optimizedPath = fs.getFullyQualifiedPath(op.Parent)[1:]
+	if len(fs.inodes[op.Parent]) > 0 {
+		if fs.inodes[op.Parent][0] == '/' {
+			optimizedPath = fs.inodes[op.Parent][1:]
 			fmt.Println(optimizedPath)
 		}
 	}
 
-	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
 	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
@@ -213,9 +202,9 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		panic(err)
 	}
 
-	fs.inodes[hash(fs.getFullyQualifiedPath(op.Parent)+"/"+op.Name)] = fs.getFullyQualifiedPath(op.Parent) + "/" + op.Name
+	fs.inodes[hash(op.Name)] = op.Name
 
-	op.Entry.Child = hash(fs.getFullyQualifiedPath(op.Parent) + "/" + op.Name)
+	op.Entry.Child = hash(op.Name)
 	op.Entry.Attributes = fuseops.InodeAttributes{
 		Nlink: 1,
 		Mode:  op.Mode,
@@ -278,9 +267,9 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 	var optimizedPath string
 
-	if len(fs.getFullyQualifiedPath(op.Inode)) > 0 {
-		if fs.getFullyQualifiedPath(op.Inode)[0] == '/' {
-			optimizedPath = fs.getFullyQualifiedPath(op.Inode)[1:]
+	if len(fs.inodes[op.Inode]) > 0 {
+		if fs.inodes[op.Inode][0] == '/' {
+			optimizedPath = fs.inodes[op.Inode][1:]
 			fmt.Println(optimizedPath)
 		}
 	}
@@ -311,17 +300,6 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	op.BytesRead = 0
 
-	// file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// TODO: Is this the right function?
-	// op.BytesRead, err = file.ReadAt(op.Dst, int64(op.Offset))
-	// if err != nil {
-	// 	panic(err)
-	// }
-
 	return nil
 }
 
@@ -332,7 +310,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		return fuse.EINVAL
 	}
 
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
+	file, err := fs.backend.Open(fs.inodes[op.Inode])
 	if err != nil {
 		panic(err)
 	}
@@ -356,7 +334,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 		return fuse.EINVAL
 	}
 
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
+	file, err := fs.backend.Open(fs.inodes[op.Inode])
 	if err != nil {
 		panic(err)
 	}
