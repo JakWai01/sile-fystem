@@ -59,7 +59,20 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
 
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Parent))
+	var file afero.File
+	var err error
+
+	var optimizedPath string
+
+	if len(fs.getFullyQualifiedPath(op.Parent)) > 0 {
+		if fs.getFullyQualifiedPath(op.Parent)[0] == '/' {
+			optimizedPath = fs.getFullyQualifiedPath(op.Parent)[1:]
+			fmt.Println(optimizedPath)
+		}
+	}
+
+	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
+	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
 	}
@@ -165,7 +178,21 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	fmt.Sprintf("Parent ID: %v", op.Parent)
 	// Grab the parent
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Parent))
+
+	var file afero.File
+	var err error
+
+	var optimizedPath string
+
+	if len(fs.getFullyQualifiedPath(op.Parent)) > 0 {
+		if fs.getFullyQualifiedPath(op.Parent)[0] == '/' {
+			optimizedPath = fs.getFullyQualifiedPath(op.Parent)[1:]
+			fmt.Println(optimizedPath)
+		}
+	}
+
+	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
+	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
 	}
