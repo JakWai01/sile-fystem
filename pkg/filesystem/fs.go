@@ -41,8 +41,8 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	}
 
 	// Build index to store fully qualified path of inode and its ID
-	// This should work using stfs
-	// fs.buildIndex(root)
+	// If absolute paths are needed in the map, just pass the root as an argument.
+	fs.buildIndex("")
 
 	fs.inodes[1] = root
 
@@ -313,10 +313,11 @@ func (fs *fileSystem) buildIndex(root string) error {
 	fmt.Println("buildIndex")
 	fmt.Printf("current root: %v", root)
 	fmt.Println()
+
 	// Write current root to map
 	fs.inodes[hash(root)] = root
 
-	// This won't work for OsFs, since OsFs is not using absolute paths
+	fmt.Println(root)
 	file, err := fs.backend.Open(root)
 	if err != nil {
 		panic(err)
@@ -328,6 +329,7 @@ func (fs *fileSystem) buildIndex(root string) error {
 	}
 
 	for _, child := range children {
+		print(child.Name())
 		if child.IsDir() {
 			fs.buildIndex(root + "/" + child.Name())
 		}
