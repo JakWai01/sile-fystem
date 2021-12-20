@@ -225,6 +225,68 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 
 func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
 	fmt.Println("CreateFile")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	var file afero.File
+
+	var optimizedPath string
+
+	if len(fs.inodes[op.Parent]) > 0 {
+		if fs.inodes[op.Parent][0] == '/' {
+			optimizedPath = fs.inodes[op.Parent][1:]
+			fmt.Println(optimizedPath)
+		}
+	}
+
+	file, err = fs.backend.Open(optimizedPath)
+	if err != nil {
+		panic(err)
+	}
+
+	children, err := file.Readdir(-1)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, child := range children {
+		if child.Name() == op.Name {
+			return fuse.EEXIST
+		}
+	}
+
+	_, err = fs.backend.Create(op.Name)
+	if err != nil {
+		panic(err)
+	}
+
+	fs.inodes[hash(op.Name)] = op.Name
+
+	var entry fuseops.ChildInodeEntry
+
+	entry.Child = hash(op.Name)
+
+	now := time.Now()
+	entry.Attributes = fuseops.InodeAttributes{
+		Nlink:  1,
+		Mode:   op.Mode,
+		Atime:  now,
+		Mtime:  now,
+		Ctime:  now,
+		Crtime: now,
+		Uid:    fs.uid,
+		Gid:    fs.gid,
+	}
+
+	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	entry.EntryExpiration = entry.AttributesExpiration
+
+	op.Entry = entry
 	return nil
 }
 
