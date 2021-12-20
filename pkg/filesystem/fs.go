@@ -143,6 +143,50 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fmt.Println("MkDir")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	fmt.Sprintf("Parent ID: %v", op.Parent)
+	// Grab the parent
+	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Parent))
+	if err != nil {
+		panic(err)
+	}
+
+	children, err := file.Readdir(-1)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, child := range children {
+		if child.Name() == op.Name {
+			return fuse.EEXIST
+		}
+	}
+
+	err = fs.backend.Mkdir(op.Name, op.Mode)
+	if err != nil {
+		panic(err)
+	}
+
+	fs.inodes[hash(fs.getFullyQualifiedPath(op.Parent)+"/"+op.Name)] = fs.getFullyQualifiedPath(op.Parent) + "/" + op.Name
+
+	op.Entry.Child = hash(fs.getFullyQualifiedPath(op.Parent) + "/" + op.Name)
+	op.Entry.Attributes = fuseops.InodeAttributes{
+		Nlink: 1,
+		Mode:  op.Mode,
+		Uid:   fs.uid,
+		Gid:   fs.gid,
+	}
+
+	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
+
 	return nil
 }
 
@@ -187,8 +231,22 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
+	fmt.Println(fs.inodes)
+	fmt.Println(op.Inode)
 
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
+	var file afero.File
+	var err error
+
+	var optimizedPath string
+
+	if len(fs.getFullyQualifiedPath(op.Inode)) > 0 {
+		if fs.getFullyQualifiedPath(op.Inode)[0] == '/' {
+			optimizedPath = fs.getFullyQualifiedPath(op.Inode)[1:]
+			fmt.Println(optimizedPath)
+		}
+	}
+
+	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
 	}
