@@ -107,8 +107,20 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	var file afero.File
+	var err error
+
+	var optimizedPath string
+
+	if len(fs.getFullyQualifiedPath(op.Inode)) > 0 {
+		if fs.getFullyQualifiedPath(op.Inode)[0] == '/' {
+			optimizedPath = fs.getFullyQualifiedPath(op.Inode)[1:]
+			fmt.Println(optimizedPath)
+		}
+	}
+
 	// Open triggers the GetInodeAttributes function again, which leads to an infinite loop
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
+	file, err = fs.backend.Open(optimizedPath)
 	if err != nil {
 		panic(err)
 	}
