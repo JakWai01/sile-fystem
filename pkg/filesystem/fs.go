@@ -7,7 +7,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/JakWai01/sile-fystem/pkg/cache"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -22,7 +21,9 @@ func (e *InodeNotFound) Error() string {
 }
 
 type fileSystem struct {
-	inodes  map[fuseops.InodeID]string
+	inodes map[fuseops.InodeID]string
+	root   string
+	// backend afero.Fs
 	backend afero.Fs
 	fuseutil.NotImplementedFileSystem
 
@@ -35,7 +36,8 @@ type fileSystem struct {
 func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]string),
-		backend: cache.Cache(afero.NewOsFs(), root, 100*time.Second, "/tmp/fscache"),
+		root:    root,
+		backend: afero.NewMemMapFs(),
 		uid:     uid,
 		gid:     gid,
 	}
@@ -44,7 +46,8 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	// If absolute paths are needed in the map, just pass the root as an argument.
 	fs.buildIndex("")
 
-	fs.inodes[1] = root
+	// The rootnode requires ID 1
+	fs.inodes[1] = ""
 
 	fmt.Println(fs.inodes)
 
@@ -67,6 +70,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	}
 
 	for _, child := range children {
+		fmt.Sprintf("Fully qualified path of parent in LookUpInode: %v", fs.getFullyQualifiedPath(op.Parent))
 		childPath := fs.getFullyQualifiedPath(op.Parent) + "/" + child.Name()
 		if child.Name() == op.Name {
 			op.Entry.Child = hash(childPath)
@@ -93,8 +97,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 // Get attributes of op.InodeID
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
-	fmt.Println("GetInodeAttributes")
-	fmt.Printf("op.Inode: %v", op.Inode)
+	fmt.Printf("GetInodeAttributes with op.Inode: %v and path: %v", op.Inode, fs.getFullyQualifiedPath(op.Inode))
 	fmt.Println()
 
 	if op.OpContext.Pid == 0 {
@@ -209,16 +212,18 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 		return fuse.EINVAL
 	}
 
-	file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
-	if err != nil {
-		panic(err)
-	}
+	op.BytesRead = 0
+
+	// file, err := fs.backend.Open(fs.getFullyQualifiedPath(op.Inode))
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	// TODO: Is this the right function?
-	op.BytesRead, err = file.ReadAt(op.Dst, int64(op.Offset))
-	if err != nil {
-		panic(err)
-	}
+	// op.BytesRead, err = file.ReadAt(op.Dst, int64(op.Offset))
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	return nil
 }
@@ -349,9 +354,9 @@ func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
 
 	path := fs.inodes[id]
 
-	if path == "" {
+	if path == "" && id != 1 {
 		panic(fmt.Sprintf("No inode using id: %v found!", id))
 	}
-	fmt.Println(fmt.Sprintf("Path: %v", path))
+
 	return path
 }
