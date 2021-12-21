@@ -538,6 +538,11 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 
 func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
 	fmt.Println("FlushFile")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
 	return nil
 }
 
