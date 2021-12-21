@@ -392,6 +392,12 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
+
+	err := fs.backend.Rename(op.OldName, op.NewName)
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
 
