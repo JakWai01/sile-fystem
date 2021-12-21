@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"syscall"
 	"time"
 
 	"github.com/jacobsa/fuse"
@@ -156,7 +157,32 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
 	fmt.Println("SetInodeAttributes")
-	return nil
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	var err error
+	if op.Size != nil && op.Handle == nil && *op.Size != 0 {
+		// require that truncate to non-zero has to be ftruncate()
+		// but allow open(O_TRUNC)
+		err = syscall.EBADF
+	}
+
+	// Fill the response
+	op.Attributes = fuseops.InodeAttributes{
+		Size:  *op.Size,
+		Mode:  *op.Mode,
+		Atime: *op.Atime,
+		Mtime: *op.Mtime,
+	}
+
+	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+
+	return err
 }
 
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
