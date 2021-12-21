@@ -172,13 +172,10 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 		err = syscall.EBADF
 	}
 
-	// Fill the response
-	op.Attributes = fuseops.InodeAttributes{
-		Size:  *op.Size,
-		Mode:  *op.Mode,
-		Atime: *op.Atime,
-		Mtime: *op.Mtime,
-	}
+	op.Size = &op.Attributes.Size
+	op.Mode = &op.Attributes.Mode
+	op.Atime = &op.Attributes.Atime
+	op.Mtime = &op.Attributes.Mtime
 
 	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 
@@ -403,6 +400,16 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	fmt.Println("RmDir")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	fs.backend.Remove(op.Name)
+
 	return nil
 }
 
