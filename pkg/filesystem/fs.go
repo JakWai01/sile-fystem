@@ -515,6 +515,24 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fmt.Println("WriteFile")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	file, err := fs.backend.Open(fs.inodes[op.Inode])
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = file.WriteAt(op.Data, op.Offset)
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
 
