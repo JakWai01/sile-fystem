@@ -21,6 +21,16 @@ func (e *InodeNotFound) Error() string {
 	return "Inode not found in FUSE"
 }
 
+// Do we have persistence at some point? How does a node know that it has some children?
+
+// Compare with "normal" inode implementation
+// Maybe start introduce the concept of inodes again
+
+// We probably need to enter actual paths in afero for it to create a file as a child entry
+
+// We need the fully qualified path again
+// Create new Inode struct as in the old implementation and then work with these informations
+
 type fileSystem struct {
 	inodes map[fuseops.InodeID]string
 	root   string
@@ -58,7 +68,6 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 // Looks for op.Name in op.Parent
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
-
 	var file afero.File
 	var err error
 
@@ -68,6 +77,8 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		if fs.inodes[op.Parent][0] == '/' {
 			optimizedPath = fs.inodes[op.Parent][1:]
 			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Parent]
 		}
 	}
 
@@ -81,8 +92,12 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		panic(err)
 	}
 
+	// We have one child ("test"), but the kernel only searches for .Trash and .Trash-1000
+	// Try to ignore this but make the kernel search for  "test"
 	for _, child := range children {
+		fmt.Printf("Child.Name(): %v, op.Name: %v\n", child.Name(), op.Name)
 		if child.Name() == op.Name {
+			fmt.Println("Found the child")
 			op.Entry.Child = hash(child.Name())
 			op.Entry.Attributes = fuseops.InodeAttributes{
 				Size:   uint64(child.Size()),
@@ -125,6 +140,8 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 		if fs.inodes[op.Inode][0] == '/' {
 			optimizedPath = fs.inodes[op.Inode][1:]
 			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Inode]
 		}
 	}
 
@@ -182,6 +199,7 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	return err
 }
 
+// We should let the kernel know about "test"
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fmt.Println("MkDir")
 
@@ -201,6 +219,8 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		if fs.inodes[op.Parent][0] == '/' {
 			optimizedPath = fs.inodes[op.Parent][1:]
 			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Parent]
 		}
 	}
 
@@ -220,12 +240,16 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		}
 	}
 
+	// Here, we probably need the real path
 	err = fs.backend.Mkdir(op.Name, op.Mode)
 	if err != nil {
 		panic(err)
 	}
 
 	fs.inodes[hash(op.Name)] = op.Name
+
+	fmt.Printf("op.Name %v", op.Name)
+	fmt.Println()
 
 	op.Entry.Child = hash(op.Name)
 	op.Entry.Attributes = fuseops.InodeAttributes{
@@ -260,6 +284,8 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		if fs.inodes[op.Parent][0] == '/' {
 			optimizedPath = fs.inodes[op.Parent][1:]
 			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Parent]
 		}
 	}
 
@@ -328,6 +354,8 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		if fs.inodes[op.Parent][0] == '/' {
 			optimizedPath = fs.inodes[op.Parent][1:]
 			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Parent]
 		}
 	}
 
@@ -377,16 +405,6 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	return nil
 }
 
-func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
-	fmt.Println("CreateSymlink")
-	return nil
-}
-
-func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
-	fmt.Println("CreateLink")
-	return nil
-}
-
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
 
@@ -413,11 +431,6 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	return nil
 }
 
-func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
-	fmt.Println("Unlink")
-	return nil
-}
-
 func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
 	fmt.Println("OpenDir")
 
@@ -436,6 +449,8 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		if fs.inodes[op.Inode][0] == '/' {
 			optimizedPath = fs.inodes[op.Inode][1:]
 			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Inode]
 		}
 	}
 
@@ -456,14 +471,77 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	return nil
 }
 
+// ReadDir lists a directory
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fmt.Println("ReadDir")
-
+	fmt.Printf("Inode: %v, Handle: %v, Offset: %v, BytesRead: %v, OpContext: %v", op.Inode, op.Handle, op.Offset, op.BytesRead, op.OpContext)
+	fmt.Println()
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
 
-	op.BytesRead = 0
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	var file afero.File
+	var err error
+
+	// optimizedPath is always ""
+	var optimizedPath string
+
+	if len(fs.inodes[op.Inode]) > 0 {
+		if fs.inodes[op.Inode][0] == '/' {
+			optimizedPath = fs.inodes[op.Inode][1:]
+			fmt.Println(optimizedPath)
+		} else {
+			optimizedPath = fs.inodes[op.Inode]
+		}
+	}
+	fmt.Printf("optimizedPath: %v", optimizedPath)
+	fmt.Println()
+	// Grab the directory
+	file, err = fs.backend.Open(optimizedPath)
+	if err != nil {
+		panic(err)
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	children, err := file.Readdir(-1)
+	if err != nil {
+		panic(err)
+	}
+
+	// op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
+	if !info.IsDir() {
+		panic("ReadDir called on non-directory.")
+	}
+
+	if int(op.Offset) > len(children) {
+		return fuse.EIO
+	}
+
+	var n int
+	for _, entry := range children[op.Offset:] {
+
+		child := fuseutil.Dirent{
+			Name:  entry.Name(),
+			Inode: hash(entry.Name()),
+			Type:  fuseutil.DT_Directory,
+		}
+
+		fmt.Printf("Child: %v", child)
+		fmt.Println()
+		written := fuseutil.WriteDirent(op.Dst[n:], child)
+		if written == 0 {
+			break
+		}
+
+		n += written
+	}
 
 	return nil
 }
@@ -543,6 +621,20 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 		return fuse.EINVAL
 	}
 
+	return nil
+}
+
+func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
+	fmt.Println("CreateSymlink")
+	return nil
+}
+
+func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
+	fmt.Println("CreateLink")
+	return nil
+}
+func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
+	fmt.Println("Unlink")
 	return nil
 }
 
