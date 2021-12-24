@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"os"
 	"time"
 
 	"github.com/jacobsa/fuse/fuseops"
@@ -26,4 +27,33 @@ func newInode(name string, path string, attrs fuseops.InodeAttributes) *inode {
 		name:  name,
 		attrs: attrs,
 	}
+}
+
+func (in *inode) isDir() bool {
+	return in.attrs.Mode&os.ModeDir != 0
+}
+
+func (in *inode) ReadDir(p []byte, offset int) int {
+	if !in.isDir() {
+		panic("ReadDir called on non-directory.")
+	}
+
+	var n int
+	for i := offset; i < len(in.entries); i++ {
+		e := in.entries[i]
+
+		// Skip the unused entries
+		if e.Type == fuseutil.DT_Unknown {
+			continue
+		}
+
+		tmp := fuseutil.WriteDirent(p[n:], in.entries[i])
+		if tmp == 0 {
+			break
+		}
+
+		n += tmp
+	}
+
+	return n
 }
