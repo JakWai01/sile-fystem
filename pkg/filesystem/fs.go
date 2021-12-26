@@ -217,8 +217,10 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		}
 	}
 
-	// Here, we probably need the real path
-	err = fs.backend.Mkdir(op.Name, op.Mode)
+	// Use absolute path to create directories
+	path := fs.getInodeOrDie(op.Parent).path
+
+	err = fs.backend.Mkdir(path+"/"+op.Name, op.Mode)
 	if err != nil {
 		panic(err)
 	}
@@ -273,7 +275,9 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		}
 	}
 
-	_, err = fs.backend.Create(op.Name)
+	path := fs.getInodeOrDie(op.Parent).path
+
+	_, err = fs.backend.Create(path + "/" + op.Name)
 	if err != nil {
 		panic(err)
 	}
@@ -332,7 +336,9 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		}
 	}
 
-	_, err = fs.backend.Create(op.Name)
+	path := fs.getInodeOrDie(op.Parent).path
+
+	_, err = fs.backend.Create(path + "/" + op.Name)
 	if err != nil {
 		panic(err)
 	}
