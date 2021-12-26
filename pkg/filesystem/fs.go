@@ -471,13 +471,16 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 		return fuse.EINVAL
 	}
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	file, err := fs.backend.Open(fs.inodes[op.Inode].name)
 	if err != nil {
 		panic(err)
 	}
 
-	// TODO: Is this the right function?
-	op.BytesRead, err = file.ReadAt(op.Dst, int64(op.Offset))
+	// Serve the request
+	op.BytesRead, err = file.ReadAt(op.Dst, op.Offset)
 	if err == io.EOF {
 		return nil
 	}
@@ -495,13 +498,10 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	file, err := fs.backend.Open(fs.inodes[op.Inode].name)
-	if err != nil {
-		panic(err)
-	}
+	afero.WriteFile(fs.backend, fs.inodes[op.Inode].name, op.Data, 0644)
 
-	_, err = file.WriteAt(op.Data, op.Offset)
-	if err != nil {
+	_, err := fs.backend.Stat(fs.inodes[op.Inode].name)
+	if os.IsNotExist(err) {
 		panic(err)
 	}
 

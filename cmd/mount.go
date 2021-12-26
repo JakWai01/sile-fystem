@@ -25,7 +25,7 @@ var mountCmd = &cobra.Command{
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
-			DisableDefaultPermissions: false,
+			DisableDefaultPermissions: true,
 		}
 
 		// Mount the fuse.Server we created earlier

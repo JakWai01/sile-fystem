@@ -8,6 +8,7 @@ import (
 	"github.com/jacobsa/fuse/fuseutil"
 )
 
+// Try to store the minimum amount necessary to use afero
 type inode struct {
 	id      fuseops.InodeID
 	name    string
@@ -31,6 +32,14 @@ func newInode(name string, path string, attrs fuseops.InodeAttributes) *inode {
 
 func (in *inode) isDir() bool {
 	return in.attrs.Mode&os.ModeDir != 0
+}
+
+func (in *inode) isSymlink() bool {
+	return in.attrs.Mode&os.ModeSymlink != 0
+}
+
+func (in *inode) isFile() bool {
+	return !(in.isDir() || in.isSymlink())
 }
 
 func (in *inode) ReadDir(p []byte, offset int) int {
