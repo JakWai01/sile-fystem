@@ -57,3 +57,34 @@ func (in *inode) ReadDir(p []byte, offset int) int {
 
 	return n
 }
+
+func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
+	var index int
+
+	// Update the modification time
+	in.attrs.Mtime = time.Now()
+
+	// No matter where we place the entry, make sure it has the correct Offset field
+	defer func() {
+		in.entries[index].Offset = fuseops.DirOffset(index + 1)
+	}()
+
+	// Set up the entry
+	e := fuseutil.Dirent{
+		Inode: id,
+		Name:  name,
+		Type:  dt,
+	}
+
+	// Look for a gap in which we can insert it
+	for index = range in.entries {
+		if in.entries[index].Type == fuseutil.DT_Unknown {
+			in.entries[index] = e
+			return
+		}
+	}
+
+	// Append it to the end
+	index = len(in.entries)
+	in.entries = append(in.entries, e)
+}

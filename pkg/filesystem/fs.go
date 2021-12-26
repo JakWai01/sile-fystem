@@ -237,6 +237,8 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	fs.inodes[hash(op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
 
+	fs.getInodeOrDie(op.Parent).AddChild(hash(op.Name), op.Name, fuseutil.DT_Directory)
+
 	op.Entry.Child = hash(op.Name)
 	op.Entry.Attributes = attrs
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
@@ -350,6 +352,8 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 
 	fs.inodes[hash(op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
 
+	fs.getInodeOrDie(op.Parent).AddChild(hash(op.Name), op.Name, fuseutil.DT_File)
+
 	var entry fuseops.ChildInodeEntry
 
 	entry.Child = hash(op.Name)
@@ -428,48 +432,10 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	defer fs.mu.Unlock()
 
 	// Grab the directory
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Inode).name)
-	if err != nil {
-		panic(err)
-	}
+	inode := fs.getInodeOrDie(op.Inode)
 
-	info, err := file.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
-
-	// op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
-	if !info.IsDir() {
-		panic("ReadDir called on non-directory.")
-	}
-
-	if int(op.Offset) > len(children) {
-		return fuse.EIO
-	}
-
-	var n int
-	for _, entry := range children[op.Offset:] {
-
-		child := fuseutil.Dirent{
-			Name:  entry.Name(),
-			Inode: hash(entry.Name()),
-			Type:  fuseutil.DT_Directory,
-		}
-
-		fmt.Printf("Child: %v", child)
-		fmt.Println()
-		written := fuseutil.WriteDirent(op.Dst[n:], child)
-		if written == 0 {
-			break
-		}
-
-		n += written
-	}
+	// Serve the request
+	op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
 
 	return nil
 }
