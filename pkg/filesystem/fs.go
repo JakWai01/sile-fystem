@@ -1,6 +1,5 @@
 package filesystem
 
-// Our hashes need to be the paths as well. Not only the name
 import (
 	"context"
 	"fmt"
@@ -23,20 +22,9 @@ func (e *InodeNotFound) Error() string {
 	return "Inode not found in FUSE"
 }
 
-// Do we have persistence at some point? How does a node know that it has some children?
-
-// Compare with "normal" inode implementation
-// Maybe start introduce the concept of inodes again
-
-// We probably need to enter actual paths in afero for it to create a file as a child entry
-
-// We need the fully qualified path again
-// Create new Inode struct as in the old implementation and then work with these informations
-
 type fileSystem struct {
-	inodes map[fuseops.InodeID]*inode
-	root   string
-	// backend afero.Fs
+	inodes  map[fuseops.InodeID]*inode
+	root    string
 	backend afero.Fs
 	fuseutil.NotImplementedFileSystem
 
@@ -55,18 +43,12 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 		gid:     gid,
 	}
 
-	// Build index to store fully qualified path of inode and its ID
-	// If absolute paths are needed in the map, just pass the root as an argument.
-	// fs.buildIndex("")
-
-	// The rootnode requires ID 1
 	rootAttrs := fuseops.InodeAttributes{
 		Mode: 0700 | os.ModeDir,
 		Uid:  uid,
 		Gid:  gid,
 	}
 
-	// In this case, root gets passed to the name parameter, since the path is the root of the new filesystem.
 	fs.inodes[fuseops.RootInodeID] = newInode(root, "", rootAttrs)
 
 	fmt.Println(fs.inodes)
@@ -74,9 +56,9 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 	return fuseutil.NewFileSystemServer(fs)
 }
 
-// Return inode by id. Panic if the inode doesn't exist.
 func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 	fmt.Println("getInodeOrDie")
+
 	inode := fs.inodes[id]
 	if inode == nil {
 		panic(fmt.Sprintf("Unknown inode: %v", id))
@@ -85,11 +67,8 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 	return inode
 }
 
-// Looks for op.Name in op.Parent
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
-	fmt.Printf("fs.getInodeORDie(op.Parent).path %v, op.Parent %v", fs.getInodeOrDie(op.Parent).path, op.Parent)
-	fmt.Println()
 
 	file, err := fs.backend.Open(fs.getInodeOrDie(op.Parent).path)
 	if err != nil {
@@ -101,12 +80,8 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		panic(err)
 	}
 
-	// We have one child ("test"), but the kernel only searches for .Trash and .Trash-1000
-	// Try to ignore this but make the kernel search for  "test"
 	for _, child := range children {
-		fmt.Printf("Child.Name(): %v, op.Name: %v\n", child.Name(), op.Name)
 		if child.Name() == op.Name {
-			fmt.Println("Found the child")
 			op.Entry.Child = hash(fs.getInodeOrDie(op.Parent).path + "/" + child.Name())
 			op.Entry.Attributes = fuseops.InodeAttributes{
 				Size:   uint64(child.Size()),
@@ -130,8 +105,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 // Get attributes of op.InodeID
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
-	fmt.Printf("GetInodeAttributes with op.Inode %v", op.Inode)
-	fmt.Println()
+	fmt.Println("GetInodeAttributes")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -194,7 +168,6 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	return err
 }
 
-// We should let the kernel know about "test"
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fmt.Println("MkDir")
 
@@ -221,7 +194,6 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		}
 	}
 
-	// Use absolute path to create directories
 	path := fs.getInodeOrDie(op.Parent).path
 
 	err = fs.backend.Mkdir(path+"/"+op.Name, op.Mode)
@@ -340,21 +312,15 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		}
 	}
 
-	// This parent path is empty
 	path := fs.getInodeOrDie(op.Parent).path
-	fmt.Printf("Parent path %v", path)
-	fmt.Println()
 
-	fmt.Printf("fs.backend.Create %v", path+"/"+op.Name)
-	fmt.Println()
 	_, err = fs.backend.Create(path + "/" + op.Name)
 	if err != nil {
 		panic(err)
 	}
 
 	now := time.Now()
-	// These attributes are not the same as the file has since fs.backend.Create does not take attrs
-	// If we would stat the file now, we would probably have different attributes
+
 	attrs := fuseops.InodeAttributes{
 		Nlink:  1,
 		Mode:   op.Mode,
@@ -386,7 +352,6 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
 
-	// Maybe need to work on the paths here as well
 	err := fs.backend.Rename(op.OldName, op.NewName)
 	if err != nil {
 		panic(err)
@@ -419,7 +384,6 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	fmt.Println(fs.inodes)
 	fmt.Println(op.Inode)
 
-	// Can't open this file because we used the absolute Path to create it
 	file, err := fs.backend.Open(fs.getInodeOrDie(op.Inode).path)
 	if err != nil {
 		panic(err)
@@ -437,7 +401,6 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	return nil
 }
 
-// ReadDir lists a directory
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fmt.Println("ReadDir")
 	fmt.Printf("Inode: %v, Handle: %v, Offset: %v, BytesRead: %v, OpContext: %v", op.Inode, op.Handle, op.Offset, op.BytesRead, op.OpContext)
@@ -450,10 +413,8 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Grab the directory
 	inode := fs.getInodeOrDie(op.Inode)
 
-	// Serve the request
 	op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
 
 	return nil
@@ -461,12 +422,6 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
 	fmt.Println("OpenFile")
-	fmt.Println(op.Inode)
-	// Apparently lol.txt is a directory as info.IsDir() is true.
-	fmt.Println(hash("lol.txt"))
-	fmt.Printf("Path: %v", fs.inodes[op.Inode].path)
-	fmt.Printf("GetInodeOrDie: %v", fs.getInodeOrDie(op.Inode).path)
-	fmt.Println()
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -477,7 +432,6 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		panic(err)
 	}
 
-	// We are statting the path here, since it is zero, the root will be evaluated
 	info, err := file.Stat()
 	if err != nil {
 		panic(err)
@@ -505,7 +459,6 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 		panic(err)
 	}
 
-	// Serve the request
 	op.BytesRead, err = file.ReadAt(op.Dst, op.Offset)
 	if err == io.EOF {
 		return nil
@@ -524,7 +477,6 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// This needs to be updated
 	afero.WriteFile(fs.backend, fs.inodes[op.Inode].name, op.Data, 0644)
 
 	_, err := fs.backend.Stat(fs.inodes[op.Inode].name)

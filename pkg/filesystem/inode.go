@@ -8,7 +8,6 @@ import (
 	"github.com/jacobsa/fuse/fuseutil"
 )
 
-// Try to store the minimum amount necessary to use afero
 type inode struct {
 	id      fuseops.InodeID
 	name    string
@@ -18,12 +17,10 @@ type inode struct {
 }
 
 func newInode(name string, path string, attrs fuseops.InodeAttributes) *inode {
-	// Update time info
 	now := time.Now()
 	attrs.Mtime = now
 	attrs.Crtime = now
 
-	// Create the object
 	return &inode{
 		name:  name,
 		path:  path,
