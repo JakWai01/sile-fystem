@@ -26,6 +26,7 @@ func newInode(name string, path string, attrs fuseops.InodeAttributes) *inode {
 	// Create the object
 	return &inode{
 		name:  name,
+		path:  path,
 		attrs: attrs,
 	}
 }
