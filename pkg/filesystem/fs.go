@@ -107,7 +107,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		fmt.Printf("Child.Name(): %v, op.Name: %v\n", child.Name(), op.Name)
 		if child.Name() == op.Name {
 			fmt.Println("Found the child")
-			op.Entry.Child = hash(child.Name())
+			op.Entry.Child = hash(fs.getInodeOrDie(op.Parent).path + "/" + child.Name())
 			op.Entry.Attributes = fuseops.InodeAttributes{
 				Size:   uint64(child.Size()),
 				Nlink:  1,
@@ -241,11 +241,11 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fmt.Printf("op.Name %v", op.Name)
 	fmt.Println()
 
-	fs.inodes[hash(op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
+	fs.inodes[hash(parentPath+"/"+op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
 
-	fs.getInodeOrDie(op.Parent).AddChild(hash(op.Name), op.Name, fuseutil.DT_Directory)
+	fs.getInodeOrDie(op.Parent).AddChild(hash(parentPath+"/"+op.Name), op.Name, fuseutil.DT_Directory)
 
-	op.Entry.Child = hash(op.Name)
+	op.Entry.Child = hash(parentPath + "/" + op.Name)
 	op.Entry.Attributes = attrs
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
@@ -299,11 +299,11 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		Gid:    fs.gid,
 	}
 
-	fs.inodes[hash(op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
+	fs.inodes[hash(parentPath+"/"+op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
 
 	var entry fuseops.ChildInodeEntry
 
-	entry.Child = hash(op.Name)
+	entry.Child = hash(parentPath + "/" + op.Name)
 
 	entry.Attributes = attrs
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
@@ -314,7 +314,6 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	return nil
 }
 
-// Not creating with right path
 func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
 	fmt.Println("CreateFile")
 
@@ -367,13 +366,13 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		Gid:    fs.gid,
 	}
 
-	fs.inodes[hash(op.Name)] = newInode(op.Name, path+"/"+op.Name, attrs)
+	fs.inodes[hash(path+"/"+op.Name)] = newInode(op.Name, path+"/"+op.Name, attrs)
 
-	fs.getInodeOrDie(op.Parent).AddChild(hash(op.Name), op.Name, fuseutil.DT_File)
+	fs.getInodeOrDie(op.Parent).AddChild(hash(path+"/"+op.Name), op.Name, fuseutil.DT_File)
 
 	var entry fuseops.ChildInodeEntry
 
-	entry.Child = hash(op.Name)
+	entry.Child = hash(path + "/" + op.Name)
 
 	entry.Attributes = attrs
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
