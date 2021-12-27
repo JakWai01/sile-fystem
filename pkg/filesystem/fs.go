@@ -366,7 +366,6 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-
 	oldParent := fs.getInodeOrDie(op.OldParent)
 	oldPath := concatPath(oldParent.path, op.OldName)
 
@@ -395,7 +394,13 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 		newParent.RemoveChild(op.NewName)
 	}
 
-	newParent.AddChild(childID, op.NewName, childType)
+	inode := fs.getInodeOrDie(childID)
+
+	inode.path = newPath
+	inode.name = op.NewName
+	inode.id = hash(newPath)
+
+	newParent.AddChild(hash(newPath), op.NewName, childType)
 
 	oldParent.RemoveChild(op.OldName)
 
