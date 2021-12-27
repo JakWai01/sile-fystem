@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -14,6 +15,8 @@ type inode struct {
 	path    string
 	attrs   fuseops.InodeAttributes
 	entries []fuseutil.Dirent
+	// This needs to be replaced
+	contents []byte
 }
 
 func newInode(name string, path string, attrs fuseops.InodeAttributes) *inode {
@@ -94,4 +97,57 @@ func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentTyp
 	// Append it to the end
 	index = len(in.entries)
 	in.entries = append(in.entries, e)
+}
+
+func (in *inode) WriteAt(p []byte, off int64) (int, error) {
+	if !in.isFile() {
+		panic("WriteAt called on non-file.")
+	}
+
+	// Update the modification time.
+	in.attrs.Mtime = time.Now()
+
+	// Ensure that the contents slice is long enough.
+	newLen := int(off) + len(p)
+	if len(in.contents) < newLen {
+		padding := make([]byte, newLen-len(in.contents))
+		in.contents = append(in.contents, padding...)
+		in.attrs.Size = uint64(newLen)
+	}
+
+	// Copy in the data.
+	n := copy(in.contents[off:], p)
+
+	// Sanity check.
+	if n != len(p) {
+		panic(fmt.Sprintf("Unexpected short copy: %v", n))
+	}
+
+	return n, nil
+}
+
+func (in *inode) findChild(name string) (i int, ok bool) {
+	if !in.isDir() {
+		panic("findChild called on non-directory")
+	}
+
+	var e fuseutil.Dirent
+	for i, e = range in.entries {
+		fmt.Println(e.Name)
+		if e.Name == name {
+			return i, true
+		}
+	}
+
+	return 0, false
+}
+
+func (in *inode) LookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {
+	index, ok := in.findChild(name)
+	if ok {
+		id = in.entries[index].Inode
+		typ = in.entries[index].Type
+	}
+
+	return id, typ, ok
 }

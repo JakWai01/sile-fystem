@@ -49,9 +49,7 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = newInode(root, "", rootAttrs)
-
-	fmt.Println(fs.inodes)
+	fs.inodes[fuseops.RootInodeID] = newInode(root, sanitize(""), rootAttrs)
 
 	return fuseutil.NewFileSystemServer(fs)
 }
@@ -70,7 +68,9 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fmt.Println("LookUpInode")
 
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Parent).path)
+	parent := fs.getInodeOrDie(op.Parent)
+
+	file, err := fs.backend.Open(sanitize(parent.path))
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +82,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	for _, child := range children {
 		if child.Name() == op.Name {
-			op.Entry.Child = hash(fs.getInodeOrDie(op.Parent).path + "/" + child.Name())
+			op.Entry.Child = hash(concatPath(parent.path, child.Name()))
 			op.Entry.Attributes = fuseops.InodeAttributes{
 				Size:   uint64(child.Size()),
 				Nlink:  1,
@@ -103,7 +103,6 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	return nil
 }
 
-// Get attributes of op.InodeID
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fmt.Println("GetInodeAttributes")
 
@@ -114,10 +113,13 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Inode).path)
+	inode := fs.getInodeOrDie(op.Inode)
+
+	file, err := fs.backend.Open(sanitize(inode.path))
 	if err != nil {
 		panic(err)
 	}
+
 	defer file.Close()
 
 	info, err := file.Stat()
@@ -178,7 +180,9 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Parent).path)
+	parent := fs.getInodeOrDie(op.Parent)
+
+	file, err := fs.backend.Open(sanitize(parent.path))
 	if err != nil {
 		panic(err)
 	}
@@ -194,14 +198,12 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		}
 	}
 
-	path := fs.getInodeOrDie(op.Parent).path
+	newPath := concatPath(parent.path, op.Name)
 
-	err = fs.backend.Mkdir(path+"/"+op.Name, op.Mode)
+	err = fs.backend.Mkdir(newPath, op.Mode)
 	if err != nil {
 		panic(err)
 	}
-
-	parentPath := fs.inodes[op.Parent].path
 
 	attrs := fuseops.InodeAttributes{
 		Nlink: 1,
@@ -210,14 +212,11 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		Gid:   fs.gid,
 	}
 
-	fmt.Printf("op.Name %v", op.Name)
-	fmt.Println()
+	fs.inodes[hash(newPath)] = newInode(op.Name, newPath, attrs)
 
-	fs.inodes[hash(parentPath+"/"+op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
+	fs.getInodeOrDie(op.Parent).AddChild(hash(newPath), op.Name, fuseutil.DT_Directory)
 
-	fs.getInodeOrDie(op.Parent).AddChild(hash(parentPath+"/"+op.Name), op.Name, fuseutil.DT_Directory)
-
-	op.Entry.Child = hash(parentPath + "/" + op.Name)
+	op.Entry.Child = hash(newPath)
 	op.Entry.Attributes = attrs
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
@@ -235,7 +234,9 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Parent).path)
+	parent := fs.getInodeOrDie(op.Parent)
+
+	file, err := fs.backend.Open(sanitize(parent.path))
 	if err != nil {
 		panic(err)
 	}
@@ -251,14 +252,13 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		}
 	}
 
-	path := fs.getInodeOrDie(op.Parent).path
+	newPath := concatPath(parent.path, op.Name)
 
-	_, err = fs.backend.Create(path + "/" + op.Name)
+	_, err = fs.backend.Create(newPath)
 	if err != nil {
 		panic(err)
 	}
 
-	parentPath := fs.inodes[op.Parent].path
 	now := time.Now()
 	attrs := fuseops.InodeAttributes{
 		Nlink:  1,
@@ -271,11 +271,11 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		Gid:    fs.gid,
 	}
 
-	fs.inodes[hash(parentPath+"/"+op.Name)] = newInode(op.Name, parentPath+"/"+op.Name, attrs)
+	fs.inodes[hash(newPath)] = newInode(op.Name, newPath, attrs)
 
 	var entry fuseops.ChildInodeEntry
 
-	entry.Child = hash(parentPath + "/" + op.Name)
+	entry.Child = hash(newPath)
 
 	entry.Attributes = attrs
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
@@ -296,7 +296,9 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Parent).path)
+	parent := fs.getInodeOrDie(op.Parent)
+
+	file, err := fs.backend.Open(sanitize(parent.path))
 	if err != nil {
 		panic(err)
 	}
@@ -312,9 +314,15 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		}
 	}
 
-	path := fs.getInodeOrDie(op.Parent).path
+	newPath := concatPath(parent.path, op.Name)
 
-	_, err = fs.backend.Create(path + "/" + op.Name)
+	_, err = fs.backend.Create(newPath)
+	if err != nil {
+		panic(err)
+	}
+
+	// Set permissions of file to op.Mode
+	err = fs.backend.Chmod(newPath, op.Mode)
 	if err != nil {
 		panic(err)
 	}
@@ -332,13 +340,13 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		Gid:    fs.gid,
 	}
 
-	fs.inodes[hash(path+"/"+op.Name)] = newInode(op.Name, path+"/"+op.Name, attrs)
+	fs.inodes[hash(newPath)] = newInode(op.Name, newPath, attrs)
 
-	fs.getInodeOrDie(op.Parent).AddChild(hash(path+"/"+op.Name), op.Name, fuseutil.DT_File)
+	fs.getInodeOrDie(op.Parent).AddChild(hash(newPath), op.Name, fuseutil.DT_File)
 
 	var entry fuseops.ChildInodeEntry
 
-	entry.Child = hash(path + "/" + op.Name)
+	entry.Child = hash(newPath)
 
 	entry.Attributes = attrs
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
@@ -352,7 +360,13 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
 
-	err := fs.backend.Rename(op.OldName, op.NewName)
+	oldParent := fs.getInodeOrDie(op.OldParent)
+	oldPath := concatPath(oldParent.path, op.OldName)
+
+	newParent := fs.getInodeOrDie(op.NewParent)
+	newPath := concatPath(newParent.path, op.NewName)
+
+	err := fs.backend.Rename(oldPath, newPath)
 	if err != nil {
 		panic(err)
 	}
@@ -384,7 +398,9 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	fmt.Println(fs.inodes)
 	fmt.Println(op.Inode)
 
-	file, err := fs.backend.Open(fs.getInodeOrDie(op.Inode).path)
+	inode := fs.getInodeOrDie(op.Inode)
+
+	file, err := fs.backend.Open(sanitize(inode.path))
 	if err != nil {
 		panic(err)
 	}
@@ -403,8 +419,6 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fmt.Println("ReadDir")
-	fmt.Printf("Inode: %v, Handle: %v, Offset: %v, BytesRead: %v, OpContext: %v", op.Inode, op.Handle, op.Offset, op.BytesRead, op.OpContext)
-	fmt.Println()
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -427,7 +441,9 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		return fuse.EINVAL
 	}
 
-	file, err := fs.backend.Open(fs.inodes[op.Inode].path)
+	inode := fs.getInodeOrDie(op.Inode)
+
+	file, err := fs.backend.Open(sanitize(inode.path))
 	if err != nil {
 		panic(err)
 	}
@@ -454,7 +470,9 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	file, err := fs.backend.Open(fs.inodes[op.Inode].path)
+	inode := fs.getInodeOrDie(op.Inode)
+
+	file, err := fs.backend.Open(sanitize(inode.path))
 	if err != nil {
 		panic(err)
 	}
@@ -477,10 +495,16 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	afero.WriteFile(fs.backend, fs.inodes[op.Inode].name, op.Data, 0644)
+	inode := fs.getInodeOrDie(op.Inode)
 
-	_, err := fs.backend.Stat(fs.inodes[op.Inode].name)
-	if os.IsNotExist(err) {
+	file, err := fs.backend.OpenFile(sanitize(inode.path), os.O_WRONLY, 0400)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteAt(op.Data, op.Offset)
+	if err != nil {
 		panic(err)
 	}
 
@@ -541,7 +565,7 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 	return nil
 }
 
-// Build index using the root node.
+// TODO: Update this function accordingly
 func (fs *fileSystem) buildIndex(root string) error {
 	fmt.Println("buildIndex")
 	fmt.Printf("current root: %v", root)
@@ -589,4 +613,19 @@ func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
 	}
 
 	return path
+}
+
+// Sanitize path by removing leading slashes.
+func sanitize(path string) string {
+	if len(path) > 0 {
+		if path[0] == '/' {
+			return path[1:]
+		}
+	}
+	return path
+}
+
+// Returns the concatenated path sanitized
+func concatPath(parentPath string, childName string) string {
+	return sanitize(parentPath + "/" + childName)
 }
