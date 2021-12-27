@@ -99,6 +99,20 @@ func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentTyp
 	in.entries = append(in.entries, e)
 }
 
+func (in *inode) RemoveChild(name string) {
+	in.attrs.Mtime = time.Now()
+
+	i, ok := in.findChild(name)
+	if !ok {
+		panic(fmt.Sprintf("Unknown child: %s", name))
+	}
+
+	in.entries[i] = fuseutil.Dirent{
+		Type:   fuseutil.DT_Unknown,
+		Offset: fuseops.DirOffset(i + 1),
+	}
+}
+
 func (in *inode) WriteAt(p []byte, off int64) (int, error) {
 	if !in.isFile() {
 		panic("WriteAt called on non-file.")
@@ -133,7 +147,6 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 
 	var e fuseutil.Dirent
 	for i, e = range in.entries {
-		fmt.Println(e.Name)
 		if e.Name == name {
 			return i, true
 		}

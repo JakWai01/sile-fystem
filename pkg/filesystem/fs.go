@@ -360,6 +360,13 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fmt.Println("Rename")
 
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	oldParent := fs.getInodeOrDie(op.OldParent)
 	oldPath := concatPath(oldParent.path, op.OldName)
 
@@ -370,6 +377,27 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	if err != nil {
 		panic(err)
 	}
+
+	childID, childType, ok := oldParent.LookUpChild(op.OldName)
+	if !ok {
+		return fuse.ENOENT
+	}
+
+	existingID, _, ok := newParent.LookUpChild(op.NewName)
+	if ok {
+		existing := fs.getInodeOrDie(existingID)
+
+		var buf [4096]byte
+		if existing.isDir() && existing.ReadDir(buf[:], 0) > 0 {
+			return fuse.ENOTEMPTY
+		}
+
+		newParent.RemoveChild(op.NewName)
+	}
+
+	newParent.AddChild(childID, op.NewName, childType)
+
+	oldParent.RemoveChild(op.OldName)
 
 	return nil
 }
@@ -395,8 +423,6 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
-	fmt.Println(fs.inodes)
-	fmt.Println(op.Inode)
 
 	inode := fs.getInodeOrDie(op.Inode)
 
@@ -576,7 +602,6 @@ func (fs *fileSystem) buildIndex(root string) error {
 	// Write current root to map
 	// fs.inodes[hash(root)] = root
 
-	fmt.Println(root)
 	file, err := fs.backend.Open(root)
 	if err != nil {
 		panic(err)
@@ -590,7 +615,7 @@ func (fs *fileSystem) buildIndex(root string) error {
 	for _, child := range children {
 		print(child.Name())
 		if child.IsDir() {
-			fs.buildIndex(root + "/" + child.Name())
+			fs.buildIndex(concatPath(root, child.Name()))
 		}
 	}
 
