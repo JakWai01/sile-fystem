@@ -407,6 +407,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	return nil
 }
 
+// Not called when directory is removed
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	fmt.Println("RmDir")
 
@@ -417,7 +418,34 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
+	parent := fs.getInodeOrDie(op.Parent)
+
 	fs.backend.Remove(op.Name)
+
+	childID, _, ok := parent.LookUpChild(op.Name)
+	if !ok {
+		return fuse.ENOENT
+	}
+
+	child := fs.getInodeOrDie(childID)
+
+	file, err := fs.backend.Open(op.Name)
+	if err != nil {
+		panic(err)
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	if info.Size() != 0 {
+		return fuse.ENOTEMPTY
+	}
+
+	parent.RemoveChild(op.Name)
+
+	child.attrs.Nlink--
 
 	return nil
 }
@@ -460,7 +488,48 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
+	file, err := fs.backend.Open(sanitize(inode.path))
+	if err != nil {
+		panic(err)
+	}
+
+	children, err := file.Readdir(-1)
+	if err != nil {
+		panic(err)
+	}
+
+	if !inode.isDir() {
+		panic("ReadDir called on  non-directory.")
+	}
+
+	var n int
+	for i := int(op.Offset); i < len(children); i++ {
+		var typ fuseutil.DirentType
+
+		// This limits the DirentType to only directories and files.
+		// If additional types are needed, consider adding a type field to the inode.
+		if children[i].IsDir() {
+			typ = fuseutil.DT_Directory
+		} else {
+			typ = fuseutil.DT_File
+		}
+
+		entry := fuseutil.Dirent{
+			Offset: fuseops.DirOffset(i + 1),
+			Inode:  hash(concatPath(inode.path, children[i].Name())),
+			Name:   children[i].Name(),
+			Type:   typ,
+		}
+
+		tmp := fuseutil.WriteDirent(op.Dst[n:], entry)
+		if tmp == 0 {
+			break
+		}
+
+		n += tmp
+	}
+
+	op.BytesRead = n
 
 	return nil
 }
