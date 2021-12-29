@@ -22,13 +22,8 @@ var mountCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpoint))
+		cfg := &fuse.MountConfig{}
 
-		cfg := &fuse.MountConfig{
-			ReadOnly:                  false,
-			DisableDefaultPermissions: true,
-		}
-
-		// Mount the fuse.Server we created earlier
 		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
