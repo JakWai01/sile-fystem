@@ -19,12 +19,13 @@ type inode struct {
 	contents []byte
 }
 
-func newInode(name string, path string, attrs fuseops.InodeAttributes) *inode {
+func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeAttributes) *inode {
 	now := time.Now()
 	attrs.Mtime = now
 	attrs.Crtime = now
 
 	return &inode{
+		id:    id,
 		name:  name,
 		path:  path,
 		attrs: attrs,

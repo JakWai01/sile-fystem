@@ -49,7 +49,7 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = newInode(root, sanitize(""), rootAttrs)
+	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, root, sanitize(""), rootAttrs)
 
 	return fuseutil.NewFileSystemServer(fs)
 }
@@ -212,7 +212,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		Gid:   fs.gid,
 	}
 
-	fs.inodes[hash(newPath)] = newInode(op.Name, newPath, attrs)
+	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
 
 	fs.getInodeOrDie(op.Parent).AddChild(hash(newPath), op.Name, fuseutil.DT_Directory)
 
@@ -271,7 +271,7 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		Gid:    fs.gid,
 	}
 
-	fs.inodes[hash(newPath)] = newInode(op.Name, newPath, attrs)
+	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
 
 	var entry fuseops.ChildInodeEntry
 
@@ -340,7 +340,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		Gid:    fs.gid,
 	}
 
-	fs.inodes[hash(newPath)] = newInode(op.Name, newPath, attrs)
+	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
 
 	fs.getInodeOrDie(op.Parent).AddChild(hash(newPath), op.Name, fuseutil.DT_File)
 
@@ -407,7 +407,6 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	return nil
 }
 
-// Not called when directory is removed
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	fmt.Println("RmDir")
 
@@ -587,17 +586,22 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fmt.Println("WriteFile")
-
-	if op.OpContext.Pid == 0 {
-		return fuse.EINVAL
-	}
-
+	fmt.Printf("Using arguments Inode: %v, Handle: %v, Offset: %v, Data: %v and Opcontext.Pid: %v", op.Inode, op.Handle, op.Offset, string(op.Data), op.OpContext.Pid)
+	fmt.Println()
+	fmt.Printf("Uid: %v, Gid: %v", fs.uid, fs.gid)
+	fmt.Println()
+	fmt.Println("Before Pid")
+	// if op.OpContext.Pid == 0 {
+	// 	return fuse.EINVAL
+	// }
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	inode := fs.getInodeOrDie(op.Inode)
+	fmt.Printf("Inode with id: %v, name: %v, path: %v, attrs: %v, entries: %v, contents: %v", inode.id, inode.name, inode.path, inode.attrs, inode.entries, inode.contents)
+	fmt.Println()
 
-	file, err := fs.backend.OpenFile(sanitize(inode.path), os.O_WRONLY, 0400)
+	file, err := fs.backend.OpenFile(sanitize(inode.path), os.O_RDWR, 7777)
 	if err != nil {
 		panic(err)
 	}
@@ -607,6 +611,8 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	if err != nil {
 		panic(err)
 	}
+
+	inode.attrs.Mtime = time.Now()
 
 	return nil
 }
