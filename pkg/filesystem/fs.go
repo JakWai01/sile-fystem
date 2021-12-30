@@ -634,6 +634,34 @@ func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymli
 
 func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
 	fmt.Println("CreateLink")
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	parent := fs.getInodeOrDie(op.Parent)
+
+	_, _, exists := parent.LookUpChild(op.Name)
+	if exists {
+		return fuse.EEXIST
+	}
+
+	target := fs.getInodeOrDie(op.Target)
+
+	now := time.Now()
+	target.attrs.Nlink++
+	target.attrs.Ctime = now
+
+	parent.AddChild(op.Target, op.Name, fuseutil.DT_File)
+
+	op.Entry.Child = op.Target
+	op.Entry.Attributes = target.attrs
+	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
+
 	return nil
 }
 func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
