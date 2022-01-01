@@ -6,6 +6,7 @@ import (
 	"os/user"
 	"strconv"
 
+	"github.com/JakWai01/sile-fystem/internal/logging"
 	sf "github.com/JakWai01/sile-fystem/pkg/filesystem"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/cobra"
@@ -21,7 +22,9 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
-		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpoint))
+		jsonLogger := logging.NewJSONLogger(viper.GetInt(verboseFlag))
+
+		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpoint), jsonLogger)
 		cfg := &fuse.MountConfig{}
 
 		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)

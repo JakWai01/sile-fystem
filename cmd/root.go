@@ -1,9 +1,14 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+const (
+	verboseFlag = "verbose"
 )
 
 var rootCmd = &cobra.Command{
@@ -14,10 +19,16 @@ var rootCmd = &cobra.Command{
 For more information, please visit https://github.com/JakWai01/sile-fystem`,
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+func Execute() error {
+	rootCmd.PersistentFlags().IntP(verboseFlag, "v", 2, fmt.Sprintf("Verbosity level (default %v)", 2, []int{0, 1, 2, 3, 4}))
+
+	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		return err
 	}
+
+	viper.AutomaticEnv()
+
+	return rootCmd.Execute()
 }
 
 func init() {

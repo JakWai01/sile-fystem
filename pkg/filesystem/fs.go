@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JakWai01/sile-fystem/internal/logging"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -32,15 +33,19 @@ type fileSystem struct {
 
 	uid uint32
 	gid uint32
+
+	log *logging.JSONLogger
 }
 
-func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogger) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]*inode),
 		root:    root,
 		backend: afero.NewMemMapFs(),
 		uid:     uid,
 		gid:     gid,
+
+		log: logger,
 	}
 
 	rootAttrs := fuseops.InodeAttributes{
@@ -55,7 +60,7 @@ func NewFileSystem(uid uint32, gid uint32, root string) fuse.Server {
 }
 
 func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
-	fmt.Println("getInodeOrDie")
+	fs.log.Debug("getInodeOrDie")
 
 	inode := fs.inodes[id]
 	if inode == nil {
@@ -66,7 +71,7 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 }
 
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
-	fmt.Println("LookUpInode")
+	fs.log.Debug("LookUpInode")
 
 	parent := fs.getInodeOrDie(op.Parent)
 
@@ -104,7 +109,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 }
 
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
-	fmt.Println("GetInodeAttributes")
+	fs.log.Debug("GetInodeAttributes")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -144,7 +149,7 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 }
 
 func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
-	fmt.Println("SetInodeAttributes")
+	fs.log.Debug("SetInodeAttributes")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -191,7 +196,7 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 }
 
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
-	fmt.Println("MkDir")
+	fs.log.Debug("MkDir")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -245,7 +250,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 }
 
 func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
-	fmt.Println("MkNode")
+	fs.log.Debug("MkNode")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -307,7 +312,7 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 }
 
 func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
-	fmt.Println("CreateFile")
+	fs.log.Debug("CreateFile")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -378,7 +383,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 }
 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
-	fmt.Println("Rename")
+	fs.log.Debug("Rename")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -428,7 +433,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 }
 
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
-	fmt.Println("RmDir")
+	fs.log.Debug("RmDir")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -470,7 +475,7 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 }
 
 func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
-	fmt.Println("OpenDir")
+	fs.log.Debug("OpenDir")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -496,7 +501,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 }
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
-	fmt.Println("ReadDir")
+	fs.log.Debug("ReadDir")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -554,7 +559,7 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 }
 
 func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
-	fmt.Println("OpenFile")
+	fs.log.Debug("OpenFile")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -580,7 +585,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 }
 
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
-	fmt.Println("ReadFile")
+	fs.log.Debug("ReadFile")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -605,15 +610,8 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 }
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
-	fmt.Println("WriteFile")
-	fmt.Printf("Using arguments Inode: %v, Handle: %v, Offset: %v, Data: %v and Opcontext.Pid: %v", op.Inode, op.Handle, op.Offset, string(op.Data), op.OpContext.Pid)
-	fmt.Println()
-	fmt.Printf("Uid: %v, Gid: %v", fs.uid, fs.gid)
-	fmt.Println()
-	fmt.Println("Before Pid")
-	// if op.OpContext.Pid == 0 {
-	// 	return fuse.EINVAL
-	// }
+	fs.log.Debug("WriteFile")
+
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -638,7 +636,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 }
 
 func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
-	fmt.Println("FlushFile")
+	fs.log.Debug("FlushFile")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -648,12 +646,12 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 }
 
 func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
-	fmt.Println("CreateSymlink")
+	fs.log.Debug("CreateSymlink")
 	return nil
 }
 
 func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
-	fmt.Println("CreateLink")
+	fs.log.Debug("CreateLink")
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -685,37 +683,37 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 	return nil
 }
 func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
-	fmt.Println("Unlink")
+	fs.log.Debug("Unlink")
 	return nil
 }
 
 func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
-	fmt.Println("ReadSymlink")
+	fs.log.Debug("ReadSymlink")
 	return nil
 }
 
 func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
-	fmt.Println("GetXattr")
+	fs.log.Debug("GetXattr")
 	return nil
 }
 
 func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
-	fmt.Println("ListXattr")
+	fs.log.Debug("ListXattr")
 	return nil
 }
 
 func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp) error {
-	fmt.Println("RemoveXattr")
+	fs.log.Debug("RemoveXattr")
 	return nil
 }
 
 func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) error {
-	fmt.Println("SetXattr")
+	fs.log.Debug("SetXattr")
 	return nil
 }
 
 func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) error {
-	fmt.Println("Fallocate")
+	fs.log.Debug("Fallocate")
 	return nil
 }
 
@@ -757,7 +755,7 @@ func hash(s string) fuseops.InodeID {
 }
 
 func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
-	fmt.Println("getFullyQualifiedPath")
+	fs.log.Debug("getFullyQualifiedPath")
 
 	path := fs.inodes[id].path
 
