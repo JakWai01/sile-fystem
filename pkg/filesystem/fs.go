@@ -160,25 +160,25 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 		err = syscall.EBADF
 	}
 
-	inode := fs.getInodeOrDie(op.Inode)
+	// inode := fs.getInodeOrDie(op.Inode)
 
 	// Send updated Mode to afero
-	err = fs.backend.Chmod(sanitize(inode.path), *op.Mode)
-	if err != nil {
-		panic(err)
-	}
+	// err = fs.backend.Chmod(sanitize(inode.path), *op.Mode)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	// Send updated Uid and Gid to afero
-	err = fs.backend.Chown(sanitize(inode.path), int(op.Attributes.Uid), int(op.Attributes.Gid))
-	if err != nil {
-		panic(err)
-	}
+	// // Send updated Uid and Gid to afero
+	// err = fs.backend.Chown(sanitize(inode.path), int(op.Attributes.Uid), int(op.Attributes.Gid))
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	// Send updated Atime and Mtime to afero
-	fs.backend.Chtimes(sanitize(inode.path), *op.Atime, *op.Mtime)
-	if err != nil {
-		panic(err)
-	}
+	// // Send updated Atime and Mtime to afero
+	// fs.backend.Chtimes(sanitize(inode.path), *op.Atime, *op.Mtime)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	op.Size = &op.Attributes.Size
 	op.Mode = &op.Attributes.Mode
