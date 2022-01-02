@@ -37,11 +37,11 @@ type fileSystem struct {
 	log *logging.JSONLogger
 }
 
-func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogger) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogger, backend afero.Fs) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]*inode),
 		root:    root,
-		backend: afero.NewMemMapFs(),
+		backend: backend,
 		uid:     uid,
 		gid:     gid,
 
