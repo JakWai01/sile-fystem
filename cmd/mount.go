@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	driveFlag = "drive"
+	driveFlag      = "drive"
+	mountpointFlag = "mountpoint"
 )
 
 var mountCmd = &cobra.Command{
@@ -156,10 +157,10 @@ var mountCmd = &cobra.Command{
 			return err
 		}
 
-		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(driveFlag), jsonLogger, fs)
+		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpointFlag), jsonLogger, fs)
 		cfg := &fuse.MountConfig{}
 
-		mfs, err := fuse.Mount(root, serve, cfg)
+		mfs, err := fuse.Mount(viper.GetString(mountpointFlag), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
@@ -173,7 +174,8 @@ var mountCmd = &cobra.Command{
 }
 
 func init() {
-	mountCmd.PersistentFlags().String(driveFlag, "", "Tape drive or tar archive to mount")
+	mountCmd.PersistentFlags().String(driveFlag, "", "Tape drive or tar archive to use as backend")
+	mountCmd.PersistentFlags().String(mountpointFlag, "", "Mountpoint to use for FUSE")
 
 	// Bind env variables
 	if err := viper.BindPFlags(mountCmd.PersistentFlags()); err != nil {
