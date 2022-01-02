@@ -60,7 +60,9 @@ func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogg
 }
 
 func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
-	fs.log.Debug("getInodeOrDie")
+	fs.log.Trace("FUSE.getInodeOrDie", map[string]interface{}{
+		"id": id,
+	})
 
 	inode := fs.inodes[id]
 	if inode == nil {
@@ -71,7 +73,12 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 }
 
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
-	fs.log.Debug("LookUpInode")
+	fs.log.Debug("FUSE.LookUpInode", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"entry":     op.Entry,
+		"OpContext": op.OpContext,
+	})
 
 	parent := fs.getInodeOrDie(op.Parent)
 
@@ -109,7 +116,12 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 }
 
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
-	fs.log.Debug("GetInodeAttributes")
+	fs.log.Debug("FUSE.GetInodeAttributes", map[string]interface{}{
+		"inode":                op.Inode,
+		"attributes":           op.Attributes,
+		"attributesExpiration": op.AttributesExpiration,
+		"opContext":            op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -149,7 +161,17 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 }
 
 func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
-	fs.log.Debug("SetInodeAttributes")
+	fs.log.Debug("FUSE.SetInodeAttributes", map[string]interface{}{
+		"inode":                op.Inode,
+		"handle":               op.Handle,
+		"size":                 op.Size,
+		"mode":                 op.Mode,
+		"aTime":                op.Atime,
+		"mTime":                op.Mtime,
+		"attributes":           op.Attributes,
+		"attributesExpiration": op.AttributesExpiration,
+		"opContext":            op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -196,7 +218,13 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 }
 
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
-	fs.log.Debug("MkDir")
+	fs.log.Debug("FUSE.MkDir", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"mode":      op.Mode,
+		"entry":     op.Entry,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -250,7 +278,13 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 }
 
 func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
-	fs.log.Debug("MkNode")
+	fs.log.Debug("FUSE.MkNode", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"mode":      op.Mode,
+		"entry":     op.Entry,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -312,7 +346,14 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 }
 
 func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
-	fs.log.Debug("CreateFile")
+	fs.log.Debug("FUSE.CreateFile", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"mode":      op.Mode,
+		"entry":     op.Entry,
+		"handle":    op.Handle,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -383,7 +424,13 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 }
 
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
-	fs.log.Debug("Rename")
+	fs.log.Debug("FUSE.Rename", map[string]interface{}{
+		"oldParent": op.OldParent,
+		"oldName":   op.OldName,
+		"newParent": op.NewParent,
+		"newName":   op.NewName,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -433,7 +480,11 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 }
 
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
-	fs.log.Debug("RmDir")
+	fs.log.Debug("FUSE.RmDir", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -475,7 +526,11 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 }
 
 func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
-	fs.log.Debug("OpenDir")
+	fs.log.Debug("FUSE.OpenDir", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -501,7 +556,14 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 }
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
-	fs.log.Debug("ReadDir")
+	fs.log.Debug("FUSE.ReadDir", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
+		"dst":       op.Dst,
+		"bytesRead": op.BytesRead,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -559,7 +621,13 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 }
 
 func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
-	fs.log.Debug("OpenFile")
+	fs.log.Debug("FUSE.OpenFile", map[string]interface{}{
+		"inode":         op.Inode,
+		"handle":        op.Handle,
+		"keepPageCache": op.KeepPageCache,
+		"useDirectID":   op.UseDirectIO,
+		"opContext":     op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -585,7 +653,14 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 }
 
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
-	fs.log.Debug("ReadFile")
+	fs.log.Debug("FUSE.ReadFile", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
+		"dst":       op.Dst,
+		"bytesRead": op.BytesRead,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -610,7 +685,13 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 }
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
-	fs.log.Debug("WriteFile")
+	fs.log.Debug("FUSE.WriteFile", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
+		"data":      op.Data,
+		"opContext": op.OpContext,
+	})
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -636,7 +717,11 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 }
 
 func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
-	fs.log.Debug("FlushFile")
+	fs.log.Debug("FUSE.FlushFile", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -646,12 +731,25 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 }
 
 func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
-	fs.log.Debug("CreateSymlink")
+	fs.log.Debug("FUSE.CreateSymlink", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"target":    op.Target,
+		"entry":     op.Entry,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
-	fs.log.Debug("CreateLink")
+	fs.log.Debug("FUSE.CreateLink", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"target":    op.Target,
+		"entry":     op.Entry,
+		"opContext": op.OpContext,
+	})
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
@@ -683,45 +781,88 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 	return nil
 }
 func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
-	fs.log.Debug("Unlink")
+	fs.log.Debug("FUSE.Unlink", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
-	fs.log.Debug("ReadSymlink")
+	fs.log.Debug("FUSE.ReadSymlink", map[string]interface{}{
+		"inode":     op.Inode,
+		"target":    op.Target,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
-	fs.log.Debug("GetXattr")
+	fs.log.Debug("FUSE.GetXattr", map[string]interface{}{
+		"inode":     op.Inode,
+		"name":      op.Name,
+		"dst":       op.Dst,
+		"bytesRead": op.BytesRead,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
-	fs.log.Debug("ListXattr")
+	fs.log.Debug("FUSE.ListXattr", map[string]interface{}{
+		"inode":     op.Inode,
+		"dst":       op.Dst,
+		"bytesRead": op.BytesRead,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp) error {
-	fs.log.Debug("RemoveXattr")
+	fs.log.Debug("FUSE.RemoveXattr", map[string]interface{}{
+		"inode":     op.Inode,
+		"name":      op.Name,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) error {
-	fs.log.Debug("SetXattr")
+	fs.log.Debug("FUSE.SetXattr", map[string]interface{}{
+		"inode":     op.Inode,
+		"name":      op.Name,
+		"value":     op.Value,
+		"flags":     op.Flags,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) error {
-	fs.log.Debug("Fallocate")
+	fs.log.Debug("FUSE.Fallocate", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
+		"length":    op.Length,
+		"mode":      op.Mode,
+		"opContext": op.OpContext,
+	})
+
 	return nil
 }
 
 // TODO: Update this function accordingly
 func (fs *fileSystem) buildIndex(root string) error {
-	fmt.Println("buildIndex")
-	fmt.Printf("current root: %v", root)
-	fmt.Println()
+	fs.log.Trace("FUSE.buildIndex", map[string]interface{}{
+		"root": root,
+	})
 
 	// Open all files and Stat to create the nodes
 
@@ -755,7 +896,9 @@ func hash(s string) fuseops.InodeID {
 }
 
 func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
-	fs.log.Debug("getFullyQualifiedPath")
+	fs.log.Trace("FUSE.getFullyQualifiedPath", map[string]interface{}{
+		"id": id,
+	})
 
 	path := fs.inodes[id].path
 
