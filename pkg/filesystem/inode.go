@@ -15,8 +15,6 @@ type inode struct {
 	path    string
 	attrs   fuseops.InodeAttributes
 	entries []fuseutil.Dirent
-	// This needs to be replaced
-	contents []byte
 }
 
 func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeAttributes) *inode {
@@ -42,31 +40,6 @@ func (in *inode) isSymlink() bool {
 
 func (in *inode) isFile() bool {
 	return !(in.isDir() || in.isSymlink())
-}
-
-func (in *inode) ReadDir(p []byte, offset int) int {
-	if !in.isDir() {
-		panic("ReadDir called on non-directory.")
-	}
-
-	var n int
-	for i := offset; i < len(in.entries); i++ {
-		e := in.entries[i]
-
-		// Skip the unused entries
-		if e.Type == fuseutil.DT_Unknown {
-			continue
-		}
-
-		tmp := fuseutil.WriteDirent(p[n:], in.entries[i])
-		if tmp == 0 {
-			break
-		}
-
-		n += tmp
-	}
-
-	return n
 }
 
 func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
@@ -112,33 +85,6 @@ func (in *inode) RemoveChild(name string) {
 		Type:   fuseutil.DT_Unknown,
 		Offset: fuseops.DirOffset(i + 1),
 	}
-}
-
-func (in *inode) WriteAt(p []byte, off int64) (int, error) {
-	if !in.isFile() {
-		panic("WriteAt called on non-file.")
-	}
-
-	// Update the modification time.
-	in.attrs.Mtime = time.Now()
-
-	// Ensure that the contents slice is long enough.
-	newLen := int(off) + len(p)
-	if len(in.contents) < newLen {
-		padding := make([]byte, newLen-len(in.contents))
-		in.contents = append(in.contents, padding...)
-		in.attrs.Size = uint64(newLen)
-	}
-
-	// Copy in the data.
-	n := copy(in.contents[off:], p)
-
-	// Sanity check.
-	if n != len(p) {
-		panic(fmt.Sprintf("Unexpected short copy: %v", n))
-	}
-
-	return n, nil
 }
 
 func (in *inode) findChild(name string) (i int, ok bool) {

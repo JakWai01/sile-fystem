@@ -438,6 +438,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
 	oldParent := fs.getInodeOrDie(op.OldParent)
 	oldPath := concatPath(oldParent.path, op.OldName)
 
@@ -458,8 +459,22 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	if ok {
 		existing := fs.getInodeOrDie(existingID)
 
-		var buf [4096]byte
-		if existing.isDir() && existing.ReadDir(buf[:], 0) > 0 {
+		file, err := fs.backend.Open(existing.path)
+		if err != nil {
+			panic(err)
+		}
+
+		children, err := file.Readdir(-1)
+		if err != nil {
+			panic(err)
+		}
+
+		info, err := file.Stat()
+		if err != nil {
+			panic(err)
+		}
+
+		if len(children) > 0 && info.IsDir() {
 			return fuse.ENOTEMPTY
 		}
 
@@ -697,8 +712,6 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	defer fs.mu.Unlock()
 
 	inode := fs.getInodeOrDie(op.Inode)
-	fmt.Printf("Inode with id: %v, name: %v, path: %v, attrs: %v, entries: %v, contents: %v", inode.id, inode.name, inode.path, inode.attrs, inode.entries, inode.contents)
-	fmt.Println()
 
 	file, err := fs.backend.OpenFile(inode.path, os.O_RDWR, 7777)
 	if err != nil {
