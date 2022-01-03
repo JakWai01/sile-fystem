@@ -52,16 +52,16 @@ var mountCmd = &cobra.Command{
 		}
 
 		pipeConfig := config.PipeConfig{
-			Compression: "none",
-			Encryption:  "none",
-			Signature:   "none",
+			Compression: config.NoneKey,
+			Encryption:  config.NoneKey,
+			Signature:   config.NoneKey,
 			RecordSize:  20,
 		}
 
 		cryptoConfig := config.CryptoConfig{
-			Recipient: "none",
-			Identity:  "none",
-			Password:  "none",
+			Recipient: config.NoneKey,
+			Identity:  config.NoneKey,
+			Password:  config.NoneKey,
 		}
 
 		jsonLogger := logging.NewJSONLogger(viper.GetInt(verboseFlag))
@@ -154,10 +154,10 @@ var mountCmd = &cobra.Command{
 						0,
 
 						func(hdr *tar.Header, i int) error {
-							return encryption.DecryptHeader(hdr, "none", "none")
+							return encryption.DecryptHeader(hdr, config.NoneKey, config.NoneKey)
 						},
 						func(hdr *tar.Header, isRegular bool) error {
-							return signature.VerifyHeader(hdr, isRegular, "none", "none")
+							return signature.VerifyHeader(hdr, isRegular, config.NoneKey, config.NoneKey)
 						},
 
 						func(hdr *config.Header) {
@@ -192,7 +192,7 @@ var mountCmd = &cobra.Command{
 		fs, err := cache.NewCacheFilesystem(
 			stfs,
 			root,
-			"none",
+			config.NoneKey,
 			time.Second*3600,
 			filepath.Join("/tmp/stfs", "filesystem"),
 		)
