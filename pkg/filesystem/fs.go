@@ -37,7 +37,7 @@ type fileSystem struct {
 	log *logging.JSONLogger
 }
 
-func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogger, backend afero.Fs) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logger *logging.JSONLogger, backend afero.Fs) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]*inode),
 		root:    root,
@@ -54,7 +54,7 @@ func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogg
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, root, "/", rootAttrs)
+	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, mountpoint, root, rootAttrs)
 
 	return fuseutil.NewFileSystemServer(fs)
 }
@@ -132,7 +132,6 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	// 	file, err := fs.backend.Open(sanitize(inode.path))
 	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)

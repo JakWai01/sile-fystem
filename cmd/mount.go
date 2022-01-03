@@ -200,7 +200,7 @@ var mountCmd = &cobra.Command{
 			return err
 		}
 
-		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpointFlag), jsonLogger, fs)
+		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpointFlag), root, jsonLogger, fs)
 		cfg := &fuse.MountConfig{}
 
 		mfs, err := fuse.Mount(viper.GetString(mountpointFlag), serve, cfg)
