@@ -910,16 +910,16 @@ func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
 }
 
 // Sanitize path by removing leading slashes.
-// func sanitize(path string) string {
-// 	if len(path) > 0 {
-// 		if path[0] == '/' {
-// 			return path[1:]
-// 		}
-// 	}
-// 	return path
-// }
+func sanitize(path string) string {
+	if len(path) > 0 {
+		if path[0] == '/' && path[1] == '/' {
+			return path[1:]
+		}
+	}
+	return path
+}
 
 // Returns the concatenated path sanitized
 func concatPath(parentPath string, childName string) string {
-	return parentPath + "/" + childName
+	return sanitize(parentPath + "/" + childName)
 }
