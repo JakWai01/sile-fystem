@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"archive/tar"
 	"context"
 	"log"
 	"os"
@@ -14,9 +15,12 @@ import (
 	"github.com/jacobsa/fuse"
 	"github.com/pojntfx/stfs/pkg/cache"
 	"github.com/pojntfx/stfs/pkg/config"
+	"github.com/pojntfx/stfs/pkg/encryption"
 	sfs "github.com/pojntfx/stfs/pkg/fs"
 	"github.com/pojntfx/stfs/pkg/operations"
 	"github.com/pojntfx/stfs/pkg/persisters"
+	"github.com/pojntfx/stfs/pkg/recovery"
+	"github.com/pojntfx/stfs/pkg/signature"
 	"github.com/pojntfx/stfs/pkg/tape"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,6 +47,23 @@ var mountCmd = &cobra.Command{
 			return err
 		}
 
+		metadataConfig := config.MetadataConfig{
+			Metadata: metadataPersister,
+		}
+
+		pipeConfig := config.PipeConfig{
+			Compression: "none",
+			Encryption:  "none",
+			Signature:   "none",
+			RecordSize:  20,
+		}
+
+		cryptoConfig := config.CryptoConfig{
+			Recipient: "none",
+			Identity:  "none",
+			Password:  "none",
+		}
+
 		jsonLogger := logging.NewJSONLogger(viper.GetInt(verboseFlag))
 
 		readOps := operations.NewOperations(
@@ -56,22 +77,9 @@ var mountCmd = &cobra.Command{
 				GetDrive:   tm.GetDrive,
 				CloseDrive: tm.Close,
 			},
-			config.MetadataConfig{
-				Metadata: metadataPersister,
-			},
-
-			config.PipeConfig{
-				Compression: "none",
-				Encryption:  "none",
-				Signature:   "none",
-				RecordSize:  20,
-			},
-			config.CryptoConfig{
-				Recipient: "none",
-				Identity:  "none",
-				Password:  "none",
-			},
-
+			metadataConfig,
+			pipeConfig,
+			cryptoConfig,
 			func(event *config.HeaderEvent) {
 				jsonLogger.Debug("Header read", event)
 			},
@@ -88,22 +96,9 @@ var mountCmd = &cobra.Command{
 				GetDrive:   tm.GetDrive,
 				CloseDrive: tm.Close,
 			},
-			config.MetadataConfig{
-				Metadata: metadataPersister,
-			},
-
-			config.PipeConfig{
-				Compression: "none",
-				Encryption:  "none",
-				Signature:   "none",
-				RecordSize:  20,
-			},
-			config.CryptoConfig{
-				Recipient: "none",
-				Identity:  "none",
-				Password:  "none",
-			},
-
+			metadataConfig,
+			pipeConfig,
+			cryptoConfig,
 			func(event *config.HeaderEvent) {
 				jsonLogger.Debug("Header write", event)
 			},
@@ -135,10 +130,58 @@ var mountCmd = &cobra.Command{
 		root, err := metadataPersister.GetRootPath(context.Background())
 		if err != nil {
 			if err == config.ErrNoRootDirectory {
-				// FIXME: Re-index first, and only `Mkdir` if it still fails after indexing, otherwise this would prevent usage of non-indexed, existing tar files
-
 				root = "/"
-				if err := stfs.MkdirRoot(root, os.ModePerm); err != nil {
+
+				drive, err := tm.GetDrive()
+				if err == nil {
+					err = recovery.Index(
+						config.DriveReaderConfig{
+							Drive:          drive.Drive,
+							DriveIsRegular: drive.DriveIsRegular,
+						},
+						config.DriveConfig{
+							Drive:          drive.Drive,
+							DriveIsRegular: drive.DriveIsRegular,
+						},
+						metadataConfig,
+						pipeConfig,
+						cryptoConfig,
+
+						20,
+						0,
+						0,
+						true,
+						0,
+
+						func(hdr *tar.Header, i int) error {
+							return encryption.DecryptHeader(hdr, "none", "none")
+						},
+						func(hdr *tar.Header, isRegular bool) error {
+							return signature.VerifyHeader(hdr, isRegular, "none", "none")
+						},
+
+						func(hdr *config.Header) {
+							jsonLogger.Debug("Header read", hdr)
+						},
+					)
+					if err != nil {
+						if err := tm.Close(); err != nil {
+							return err
+						}
+
+						if err := stfs.MkdirRoot(root, os.ModePerm); err != nil {
+							return err
+						}
+					}
+				} else if os.IsNotExist(err) {
+					if err := tm.Close(); err != nil {
+						return err
+					}
+
+					if err := stfs.MkdirRoot(root, os.ModePerm); err != nil {
+						return err
+					}
+				} else {
 					return err
 				}
 			} else {
