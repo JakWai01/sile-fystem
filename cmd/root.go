@@ -44,5 +44,4 @@ func Execute() error {
 
 func init() {
 	rootCmd.AddCommand(mountCmd)
-	rootCmd.AddCommand(memFsCmd)
 }
