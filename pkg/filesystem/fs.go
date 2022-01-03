@@ -54,7 +54,7 @@ func NewFileSystem(uid uint32, gid uint32, root string, logger *logging.JSONLogg
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, root, sanitize(""), rootAttrs)
+	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, root, "/", rootAttrs)
 
 	return fuseutil.NewFileSystemServer(fs)
 }
@@ -82,7 +82,7 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(sanitize(parent.path))
+	file, err := fs.backend.Open(parent.path)
 	if err != nil {
 		panic(err)
 	}
@@ -132,7 +132,8 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(sanitize(inode.path))
+	// 	file, err := fs.backend.Open(sanitize(inode.path))
+	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
@@ -235,7 +236,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(sanitize(parent.path))
+	file, err := fs.backend.Open(parent.path)
 	if err != nil {
 		panic(err)
 	}
@@ -295,7 +296,7 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(sanitize(parent.path))
+	file, err := fs.backend.Open(parent.path)
 	if err != nil {
 		panic(err)
 	}
@@ -364,7 +365,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(sanitize(parent.path))
+	file, err := fs.backend.Open(parent.path)
 	if err != nil {
 		panic(err)
 	}
@@ -538,7 +539,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(sanitize(inode.path))
+	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
@@ -574,7 +575,7 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(sanitize(inode.path))
+	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
@@ -635,7 +636,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(sanitize(inode.path))
+	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
@@ -671,7 +672,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(sanitize(inode.path))
+	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
@@ -700,7 +701,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	fmt.Printf("Inode with id: %v, name: %v, path: %v, attrs: %v, entries: %v, contents: %v", inode.id, inode.name, inode.path, inode.attrs, inode.entries, inode.contents)
 	fmt.Println()
 
-	file, err := fs.backend.OpenFile(sanitize(inode.path), os.O_RDWR, 7777)
+	file, err := fs.backend.OpenFile(inode.path, os.O_RDWR, 7777)
 	if err != nil {
 		panic(err)
 	}
@@ -910,16 +911,16 @@ func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
 }
 
 // Sanitize path by removing leading slashes.
-func sanitize(path string) string {
-	if len(path) > 0 {
-		if path[0] == '/' {
-			return path[1:]
-		}
-	}
-	return path
-}
+// func sanitize(path string) string {
+// 	if len(path) > 0 {
+// 		if path[0] == '/' {
+// 			return path[1:]
+// 		}
+// 	}
+// 	return path
+// }
 
 // Returns the concatenated path sanitized
 func concatPath(parentPath string, childName string) string {
-	return sanitize(parentPath + "/" + childName)
+	return parentPath + "/" + childName
 }
