@@ -8,10 +8,8 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
-	sf "github.com/JakWai01/sile-fystem/pkg/filesystem"
 	"github.com/jacobsa/fuse"
 	"github.com/pojntfx/stfs/pkg/cache"
 	"github.com/pojntfx/stfs/pkg/config"
@@ -24,11 +22,16 @@ import (
 	"github.com/pojntfx/stfs/pkg/tape"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	sf "github.com/JakWai01/sile-fystem/pkg/filesystem"
 )
 
 const (
-	driveFlag      = "drive"
 	mountpointFlag = "mountpoint"
+
+	driveFlag      = "drive"
+	recordSizeFlag = "recordSize"
+	writeCacheFlag = "writeCache"
 )
 
 var mountCmd = &cobra.Command{
@@ -36,71 +39,59 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
+		l := logging.NewJSONLogger(viper.GetInt(verboseFlag))
+
 		tm := tape.NewTapeManager(
 			viper.GetString(driveFlag),
-			20,
+			viper.GetInt(recordSizeFlag),
 			false,
 		)
 
 		metadataPersister := persisters.NewMetadataPersister(viper.GetString(metadataFlag))
 		if err := metadataPersister.Open(); err != nil {
-			return err
+			panic(err)
 		}
 
 		metadataConfig := config.MetadataConfig{
 			Metadata: metadataPersister,
 		}
-
 		pipeConfig := config.PipeConfig{
 			Compression: config.NoneKey,
 			Encryption:  config.NoneKey,
 			Signature:   config.NoneKey,
-			RecordSize:  20,
+			RecordSize:  viper.GetInt(recordSizeFlag),
 		}
+		backendConfig := config.BackendConfig{
+			GetWriter:   tm.GetWriter,
+			CloseWriter: tm.Close,
 
-		cryptoConfig := config.CryptoConfig{
-			Recipient: config.NoneKey,
-			Identity:  config.NoneKey,
-			Password:  config.NoneKey,
+			GetReader:   tm.GetReader,
+			CloseReader: tm.Close,
+
+			GetDrive:   tm.GetDrive,
+			CloseDrive: tm.Close,
 		}
-
-		jsonLogger := logging.NewJSONLogger(viper.GetInt(verboseFlag))
+		readCryptoConfig := config.CryptoConfig{}
 
 		readOps := operations.NewOperations(
-			config.BackendConfig{
-				GetWriter:   tm.GetWriter,
-				CloseWriter: tm.Close,
-
-				GetReader:   tm.GetReader,
-				CloseReader: tm.Close,
-
-				GetDrive:   tm.GetDrive,
-				CloseDrive: tm.Close,
-			},
+			backendConfig,
 			metadataConfig,
 			pipeConfig,
-			cryptoConfig,
+			readCryptoConfig,
+
 			func(event *config.HeaderEvent) {
-				jsonLogger.Debug("Header read", event)
+				l.Debug("Header read", event)
 			},
 		)
-
 		writeOps := operations.NewOperations(
-			config.BackendConfig{
-				GetWriter:   tm.GetWriter,
-				CloseWriter: tm.Close,
-
-				GetReader:   tm.GetReader,
-				CloseReader: tm.Close,
-
-				GetDrive:   tm.GetDrive,
-				CloseDrive: tm.Close,
-			},
+			backendConfig,
 			metadataConfig,
+
 			pipeConfig,
-			cryptoConfig,
+			config.CryptoConfig{},
+
 			func(event *config.HeaderEvent) {
-				jsonLogger.Debug("Header write", event)
+				l.Debug("Header write", event)
 			},
 		)
 
@@ -112,19 +103,19 @@ var mountCmd = &cobra.Command{
 				Metadata: metadataPersister,
 			},
 
-			"balanced",
+			config.CompressionLevelFastest,
 			func() (cache.WriteCache, func() error, error) {
 				return cache.NewCacheWrite(
-					filepath.Join("/tmp/stfs", "write"),
-					"file",
+					viper.GetString(writeCacheFlag),
+					config.WriteCacheTypeFile,
 				)
 			},
-			true, // FTP needs read permission for `STOR` command even if O_WRONLY is set
+			false,
 
 			func(hdr *config.Header) {
-				jsonLogger.Trace("Header transform", hdr)
+				l.Trace("Header transform", hdr)
 			},
-			jsonLogger,
+			l,
 		)
 
 		root, err := metadataPersister.GetRootPath(context.Background())
@@ -145,47 +136,47 @@ var mountCmd = &cobra.Command{
 						},
 						metadataConfig,
 						pipeConfig,
-						cryptoConfig,
+						readCryptoConfig,
 
-						20,
+						viper.GetInt(recordSizeFlag),
 						0,
 						0,
 						true,
 						0,
 
 						func(hdr *tar.Header, i int) error {
-							return encryption.DecryptHeader(hdr, config.NoneKey, config.NoneKey)
+							return encryption.DecryptHeader(hdr, config.NoneKey, nil)
 						},
 						func(hdr *tar.Header, isRegular bool) error {
-							return signature.VerifyHeader(hdr, isRegular, config.NoneKey, config.NoneKey)
+							return signature.VerifyHeader(hdr, isRegular, config.NoneKey, nil)
 						},
 
 						func(hdr *config.Header) {
-							jsonLogger.Debug("Header read", hdr)
+							l.Debug("Header read", hdr)
 						},
 					)
 					if err != nil {
 						if err := tm.Close(); err != nil {
-							return err
+							panic(err)
 						}
 
 						if err := stfs.MkdirRoot(root, os.ModePerm); err != nil {
-							return err
+							panic(err)
 						}
 					}
 				} else if os.IsNotExist(err) {
 					if err := tm.Close(); err != nil {
-						return err
+						panic(err)
 					}
 
 					if err := stfs.MkdirRoot(root, os.ModePerm); err != nil {
-						return err
+						panic(err)
 					}
 				} else {
-					return err
+					panic(err)
 				}
 			} else {
-				return err
+				panic(err)
 			}
 		}
 
@@ -193,14 +184,14 @@ var mountCmd = &cobra.Command{
 			stfs,
 			root,
 			config.NoneKey,
-			time.Second*3600,
-			filepath.Join("/tmp/stfs", "filesystem"),
+			0,
+			"",
 		)
 		if err != nil {
-			return err
+			panic(err)
 		}
 
-		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpointFlag), root, jsonLogger, fs)
+		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpointFlag), root, l, fs)
 		cfg := &fuse.MountConfig{}
 
 		mfs, err := fuse.Mount(viper.GetString(mountpointFlag), serve, cfg)
@@ -217,8 +208,11 @@ var mountCmd = &cobra.Command{
 }
 
 func init() {
-	mountCmd.PersistentFlags().String(driveFlag, "", "Tape drive or tar archive to use as backend")
-	mountCmd.PersistentFlags().String(mountpointFlag, "", "Mountpoint to use for FUSE")
+	mountCmd.PersistentFlags().String(mountpointFlag, "/tmp/mount", "Mountpoint to use for FUSE")
+
+	mountCmd.PersistentFlags().String(driveFlag, "/dev/nst0", "Tape drive or tar archive to use as backend")
+	mountCmd.PersistentFlags().Int(recordSizeFlag, 20, "Amount of 512-bit blocks per second")
+	mountCmd.PersistentFlags().String(writeCacheFlag, filepath.Join(os.TempDir(), "stfs-write-cache"), "Directory to use for write cache")
 
 	// Bind env variables
 	if err := viper.BindPFlags(mountCmd.PersistentFlags()); err != nil {

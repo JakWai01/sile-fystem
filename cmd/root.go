@@ -30,7 +30,7 @@ func Execute() error {
 	}
 	metadataPath := filepath.Join(home, ".local", "share", "stfs", "var", "lib", "stfs", "metadata.sqlite")
 
-	rootCmd.PersistentFlags().IntP(verboseFlag, "v", 2, fmt.Sprintf("Verbosity level (default %v)", 2, []int{0, 1, 2, 3, 4}))
+	rootCmd.PersistentFlags().IntP(verboseFlag, "v", 2, fmt.Sprintf("Verbosity level (default %v)", 2))
 	rootCmd.PersistentFlags().StringP(metadataFlag, "m", metadataPath, "Metadata database to use")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
