@@ -190,19 +190,19 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	// inode := fs.getInodeOrDie(op.Inode)
 
 	// Send updated Mode to afero
-	// err = fs.backend.Chmod(sanitize(inode.path), *op.Mode)
+	// err = fs.backend.Chmod(inode.path, op.Attributes.Mode)
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// // Send updated Uid and Gid to afero
-	// err = fs.backend.Chown(sanitize(inode.path), int(op.Attributes.Uid), int(op.Attributes.Gid))
+	// Send updated Uid and Gid to afero
+	// err = fs.backend.Chown(inode.path, int(op.Attributes.Uid), int(op.Attributes.Gid))
 	// if err != nil {
 	// 	panic(err)
 	// }
 
-	// // Send updated Atime and Mtime to afero
-	// fs.backend.Chtimes(sanitize(inode.path), *op.Atime, *op.Mtime)
+	// Send updated Atime and Mtime to afero
+	// fs.backend.Chtimes(inode.path, op.Attributes.Atime, op.Attributes.Mtime)
 	// if err != nil {
 	// 	panic(err)
 	// }
@@ -464,18 +464,20 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 			panic(err)
 		}
 
-		children, err := file.Readdir(-1)
-		if err != nil {
-			panic(err)
-		}
-
 		info, err := file.Stat()
 		if err != nil {
 			panic(err)
 		}
 
-		if len(children) > 0 && info.IsDir() {
-			return fuse.ENOTEMPTY
+		if info.IsDir() {
+			children, err := file.Readdir(-1)
+			if err != nil {
+				panic(err)
+			}
+
+			if len(children) > 0 {
+				return fuse.ENOTEMPTY
+			}
 		}
 
 		newParent.RemoveChild(op.NewName)
@@ -572,10 +574,10 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fs.log.Debug("FUSE.ReadDir", map[string]interface{}{
-		"inode":     op.Inode,
-		"handle":    op.Handle,
-		"offset":    op.Offset,
-		"dst":       op.Dst,
+		"inode":  op.Inode,
+		"handle": op.Handle,
+		"offset": op.Offset,
+		// "dst":       op.Dst,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -669,10 +671,10 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
 	fs.log.Debug("FUSE.ReadFile", map[string]interface{}{
-		"inode":     op.Inode,
-		"handle":    op.Handle,
-		"offset":    op.Offset,
-		"dst":       op.Dst,
+		"inode":  op.Inode,
+		"handle": op.Handle,
+		"offset": op.Offset,
+		// "dst":       op.Dst,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -815,9 +817,9 @@ func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp
 
 func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
 	fs.log.Debug("FUSE.GetXattr", map[string]interface{}{
-		"inode":     op.Inode,
-		"name":      op.Name,
-		"dst":       op.Dst,
+		"inode": op.Inode,
+		"name":  op.Name,
+		// "dst":       op.Dst,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -827,8 +829,8 @@ func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) erro
 
 func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
 	fs.log.Debug("FUSE.ListXattr", map[string]interface{}{
-		"inode":     op.Inode,
-		"dst":       op.Dst,
+		"inode": op.Inode,
+		// "dst":       op.Dst,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
