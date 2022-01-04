@@ -445,6 +445,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	newParent := fs.getInodeOrDie(op.NewParent)
 	newPath := concatPath(newParent.path, op.NewName)
 
+	// FIXME: this fails when deleting a file (Unique constraint failed)
 	err := fs.backend.Rename(oldPath, newPath)
 	if err != nil {
 		panic(err)
@@ -487,10 +488,8 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 
 	inode.path = newPath
 	inode.name = op.NewName
-	inode.id = hash(newPath)
 
-	newParent.AddChild(hash(newPath), op.NewName, childType)
-
+	newParent.AddChild(childID, op.NewName, childType)
 	oldParent.RemoveChild(op.OldName)
 
 	return nil
@@ -703,10 +702,10 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fs.log.Debug("FUSE.WriteFile", map[string]interface{}{
-		"inode":     op.Inode,
-		"handle":    op.Handle,
-		"offset":    op.Offset,
-		"data":      op.Data,
+		"inode":  op.Inode,
+		"handle": op.Handle,
+		"offset": op.Offset,
+		// "data":      op.Data,
 		"opContext": op.OpContext,
 	})
 
