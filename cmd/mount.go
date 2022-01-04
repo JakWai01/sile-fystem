@@ -5,16 +5,14 @@ import (
 	"context"
 	"log"
 	"os"
-	"os/user"
 	"path/filepath"
-	"strconv"
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	"github.com/jacobsa/fuse"
 	"github.com/pojntfx/stfs/pkg/cache"
 	"github.com/pojntfx/stfs/pkg/config"
 	"github.com/pojntfx/stfs/pkg/encryption"
-	sfs "github.com/pojntfx/stfs/pkg/fs"
+	fs "github.com/pojntfx/stfs/pkg/fs"
 	"github.com/pojntfx/stfs/pkg/operations"
 	"github.com/pojntfx/stfs/pkg/persisters"
 	"github.com/pojntfx/stfs/pkg/recovery"
@@ -23,7 +21,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	sf "github.com/JakWai01/sile-fystem/pkg/filesystem"
+	"github.com/JakWai01/sile-fystem/pkg/filesystem"
+	"github.com/JakWai01/sile-fystem/pkg/helpers"
 )
 
 const (
@@ -95,7 +94,7 @@ var mountCmd = &cobra.Command{
 			},
 		)
 
-		stfs := sfs.NewSTFS(
+		stfs := fs.NewSTFS(
 			readOps,
 			writeOps,
 
@@ -191,7 +190,7 @@ var mountCmd = &cobra.Command{
 			panic(err)
 		}
 
-		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpointFlag), root, l, fs)
+		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpointFlag), root, l, fs)
 		cfg := &fuse.MountConfig{}
 
 		mfs, err := fuse.Mount(viper.GetString(mountpointFlag), serve, cfg)
@@ -220,32 +219,4 @@ func init() {
 	}
 	viper.SetEnvPrefix("sile-fystem")
 	viper.AutomaticEnv()
-}
-
-func currentUid() uint32 {
-	user, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	uid, err := strconv.ParseUint(user.Uid, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-
-	return uint32(uid)
-}
-
-func currentGid() uint32 {
-	user, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	gid, err := strconv.ParseUint(user.Gid, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-
-	return uint32(gid)
 }

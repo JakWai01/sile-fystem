@@ -700,6 +700,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	return err
 }
 
+// FIXME: Can't write big files
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fs.log.Debug("FUSE.WriteFile", map[string]interface{}{
 		"inode":  op.Inode,
@@ -714,7 +715,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.OpenFile(inode.path, os.O_RDWR, 7777)
+	file, err := fs.backend.OpenFile(inode.path, os.O_WRONLY, inode.attrs.Mode)
 	if err != nil {
 		panic(err)
 	}

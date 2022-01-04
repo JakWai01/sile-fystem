@@ -5,7 +5,8 @@ import (
 	"log"
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
-	sf "github.com/JakWai01/sile-fystem/pkg/filesystem"
+	"github.com/JakWai01/sile-fystem/pkg/filesystem"
+	"github.com/JakWai01/sile-fystem/pkg/helpers"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -22,7 +23,7 @@ var memFsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := logging.NewJSONLogger(5)
 
-		serve := sf.NewFileSystem(currentUid(), currentGid(), viper.GetString(mountpoint), "", logger, afero.NewMemMapFs())
+		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpoint), "", logger, afero.NewMemMapFs())
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,

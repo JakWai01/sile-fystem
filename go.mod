@@ -14,6 +14,9 @@ require (
 	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/jacobsa/oglemock v0.0.0-20150831005832-e94d794d06ff // indirect
+	github.com/jacobsa/ogletest v0.0.0-20170503003838-80d50a735a11 // indirect
+	github.com/jacobsa/reqtrace v0.0.0-20150505043853-245c9e0234cb // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/mattetti/filebuffer v1.0.1 // indirect
