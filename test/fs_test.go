@@ -1,21 +1,18 @@
 package filesystem
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
+	"flag"
 	"os"
 	"path"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/JakWai01/sile-fystem/internal/logging"
+	internal "github.com/JakWai01/sile-fystem/internal/test"
+	"github.com/JakWai01/sile-fystem/pkg/filesystem"
 	"github.com/JakWai01/sile-fystem/pkg/helpers"
-	"github.com/jacobsa/fuse"
-	"github.com/jacobsa/fuse/samples/memfs"
+	"github.com/spf13/afero"
 )
 
 const (
@@ -24,22 +21,16 @@ const (
 )
 
 var (
-	test TestSetup
+	test      internal.TestSetup
+	verbosity = flag.Int("verbosity", 2, "Verbosity of the logging output")
 )
 
-type TestSetup struct {
-	Server      fuse.Server
-	MountConfig fuse.MountConfig
-	Ctx         context.Context
-	Dir         string
-	ToClose     []io.Closer
-	mfs         *fuse.MountedFileSystem
-}
-
 func TestFileSystemSetup(t *testing.T) {
-	test = TestSetup{}
+	test = internal.TestSetup{}
 
-	err := test.Setup()
+	l := logging.NewJSONLogger(*verbosity)
+
+	err := test.Setup(filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), test.Dir, "/", l, afero.NewMemMapFs()))
 	if err != nil {
 		t.Fail()
 	}
@@ -87,96 +78,5 @@ func Test_Mkdir(t *testing.T) {
 
 	if stat.Size != 0 {
 		t.Fail()
-	}
-}
-
-func (t *TestSetup) Setup() error {
-	t.MountConfig.DisableWritebackCaching = true
-
-	t.Server = memfs.NewMemFS(helpers.CurrentUid(), helpers.CurrentGid())
-
-	cfg := t.MountConfig
-
-	err := t.initialize(context.Background(), t.Server, &cfg)
-
-	return err
-}
-
-func (t *TestSetup) initialize(ctx context.Context, server fuse.Server, config *fuse.MountConfig) error {
-	t.Ctx = ctx
-
-	if config.OpContext == nil {
-		config.OpContext = ctx
-	}
-
-	var err error
-	t.Dir, err = ioutil.TempDir("", "fuse_test")
-	if err != nil {
-		return fmt.Errorf("TempDir: %v", err)
-	}
-
-	t.mfs, err = fuse.Mount(t.Dir, server, config)
-	if err != nil {
-		return fmt.Errorf("Mount: %v", err)
-	}
-
-	return nil
-}
-
-func (t *TestSetup) TearDown() {
-	err := t.destroy()
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (t *TestSetup) destroy() (err error) {
-	for _, c := range t.ToClose {
-		if c == nil {
-			continue
-		}
-		err = c.Close()
-		if err != nil {
-			return err
-		}
-	}
-
-	if t.mfs == nil {
-		return nil
-	}
-
-	if err := unmount(t.Dir); err != nil {
-		return fmt.Errorf("unmount: %v", err)
-	}
-
-	if err := os.Remove(t.Dir); err != nil {
-		return fmt.Errorf("Unlinking mount point: %v", err)
-	}
-
-	if err := t.mfs.Join(t.Ctx); err != nil {
-		return fmt.Errorf("mfs.Join: %v", err)
-	}
-
-	return nil
-}
-
-func cleanup() {
-	os.RemoveAll("home/jakobwaibel/mountpoint")
-}
-
-func unmount(dir string) error {
-	delay := 10 * time.Millisecond
-	for {
-		err := fuse.Unmount(dir)
-		if err == nil {
-			return err
-		}
-
-		if strings.Contains(err.Error(), "resource busy") {
-			log.Println("Resource busy! Error while unmounting; trying again")
-			time.Sleep(delay)
-			delay = time.Duration(1.3 * float64(delay))
-			continue
-		}
 	}
 }
