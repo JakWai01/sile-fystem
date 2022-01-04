@@ -1,7 +1,9 @@
 package filesystem
 
 import (
+	"bytes"
 	"flag"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -439,7 +441,7 @@ func TestModifyExistingFileInSubDir(t *testing.T) {
 	f.Close()
 }
 
-func TestUnlinkFile_NonExistent(t *testing.T) {
+func TestUnlinkFileNonExistent(t *testing.T) {
 	err := os.Remove(path.Join(test.Dir, "foo3"))
 	if err == nil {
 		t.Fail()
@@ -448,4 +450,238 @@ func TestUnlinkFile_NonExistent(t *testing.T) {
 	if !strings.Contains(err.Error(), "no such file") {
 		t.Fail()
 	}
+}
+
+func TestUnlinkFileStillOpen(t *testing.T) {
+	fileName := path.Join(test.Dir, "foo4")
+
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		t.Fail()
+	}
+
+	test.ToClose = append(test.ToClose, f)
+
+	n, err := f.Write([]byte("tux"))
+	if err != nil {
+		t.Fail()
+	}
+
+	if n != 3 {
+		t.Fail()
+	}
+
+	err = os.Remove(fileName)
+	if err != nil {
+		t.Fail()
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		t.Fail()
+	}
+
+	if fi.Size() != 3 {
+		t.Fail()
+	}
+
+	buf := make([]byte, 1024)
+	n, err = f.ReadAt(buf, 0)
+	if err != io.EOF {
+		t.Fail()
+	}
+
+	if n != 3 {
+		t.Fail()
+	}
+
+	if string(buf[:3]) != "tux" {
+		t.Fail()
+	}
+
+	n, err = f.Write([]byte("burrito"))
+	if err != nil {
+		t.Fail()
+	}
+
+	if len("burrito") != n {
+		t.Fail()
+	}
+
+	f.Close()
+}
+
+func TestRmdirNonExistent(t *testing.T) {
+	err := os.Remove(path.Join(test.Dir, "harry"))
+	if err == nil {
+		t.Fail()
+	}
+
+	if !strings.Contains(err.Error(), "no such file or directory") {
+		t.Fail()
+	}
+}
+
+func TestLargeFile(t *testing.T) {
+	var err error
+
+	f, err := os.Create(path.Join(test.Dir, "foo7"))
+	if err != nil {
+		t.Fail()
+	}
+
+	test.ToClose = append(test.ToClose, f)
+
+	const size = 1 << 24
+	contents := bytes.Repeat([]byte{0x20}, size)
+
+	_, err = io.Copy(f, bytes.NewReader(contents))
+	if err != nil {
+		t.Fail()
+	}
+
+	contents, err = ioutil.ReadFile(f.Name())
+	if err != nil {
+		t.Fail()
+	}
+
+	if size != len(contents) {
+		t.Fail()
+	}
+
+	f.Close()
+}
+
+func TestAppendMode(t *testing.T) {
+	var err error
+	var n int
+	var off int64
+	buf := make([]byte, 1024)
+
+	fileName := path.Join(test.Dir, "foo8")
+
+	err = ioutil.WriteFile(fileName, []byte("Jello, "), 0600)
+	if err != nil {
+		t.Fail()
+	}
+
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND, 0600)
+	if err != nil {
+		t.Fail()
+	}
+
+	test.ToClose = append(test.ToClose, f)
+
+	off, err = f.Seek(2, 0)
+	if err != nil {
+		t.Fail()
+	}
+
+	if off != 2 {
+		t.Fail()
+	}
+
+	n, err = f.Write([]byte("world!"))
+	if err != nil {
+		t.Fail()
+	}
+
+	if n != 6 {
+		t.Fail()
+	}
+
+	off, err = getFileOffset(f)
+	if err != nil {
+		t.Fail()
+	}
+
+	if off != 13 {
+		t.Fail()
+	}
+
+	n, err = f.ReadAt(buf, 0)
+	if err != io.EOF {
+		t.Fail()
+	}
+
+	if string(buf[:n]) != "Jello, world!" {
+		t.Fail()
+	}
+
+	f.Close()
+}
+
+// func TestChmod(t *testing.T) {
+// 	var err error
+
+// 	fileName := path.Join(test.Dir, "foo9")
+
+// 	err = ioutil.WriteFile(fileName, []byte(""), 0600)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	err = os.Chmod(fileName, 0754)
+// 	if err != nil {
+// 	}
+
+// 	fi, err := os.Stat(fileName)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	// FIXME
+// 	if fi.Mode() != os.FileMode(0754) {
+// 		t.Fail()
+// 	}
+// }
+
+func TestRenameWithinDirFile(t *testing.T) {
+	var err error
+
+	parentPath := path.Join(test.Dir, "parent2")
+
+	err = os.Mkdir(parentPath, 0700)
+	if err != nil {
+		t.Fail()
+	}
+
+	oldPath := path.Join(parentPath, "foo10")
+
+	err = ioutil.WriteFile(oldPath, []byte("taco"), 0400)
+	if err != nil {
+		t.Fail()
+	}
+
+	newPath := path.Join(parentPath, "bar10")
+
+	err = os.Rename(oldPath, newPath)
+	if err != nil {
+		t.Fail()
+	}
+
+	_, err = os.Stat(oldPath)
+	if !os.IsNotExist(err) {
+		t.Fail()
+	}
+
+	_, err = ioutil.ReadFile(oldPath)
+	if !os.IsNotExist(err) {
+		t.Fail()
+	}
+
+	fi, err := os.Stat(newPath)
+	if err != nil {
+		t.Fail()
+	}
+
+	if int64(len("taco")) != fi.Size() {
+		t.Fail()
+	}
+
+}
+
+func getFileOffset(f *os.File) (offset int64, err error) {
+	const relativeToCurrent = 1
+	return f.Seek(0, relativeToCurrent)
 }
