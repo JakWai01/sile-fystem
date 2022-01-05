@@ -3,12 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"log"
-	"os"
-	"strings"
-	"time"
 
 	"github.com/jacobsa/fuse"
 )
@@ -18,14 +13,12 @@ type TestSetup struct {
 	MountConfig fuse.MountConfig
 	Ctx         context.Context
 	Dir         string
-	ToClose     []io.Closer
 	mfs         *fuse.MountedFileSystem
 }
 
 func (t *TestSetup) Setup(server fuse.Server) error {
 	t.MountConfig.DisableWritebackCaching = true
 
-	//	t.Server = memfs.NewMemFS(helpers.CurrentUid(), helpers.CurrentGid())
 	t.Server = server
 
 	cfg := t.MountConfig
@@ -54,62 +47,4 @@ func (t *TestSetup) initialize(ctx context.Context, server fuse.Server, config *
 	}
 
 	return nil
-}
-
-func (t *TestSetup) TearDown() {
-	err := t.destroy()
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (t *TestSetup) destroy() (err error) {
-	for _, c := range t.ToClose {
-		if c == nil {
-			continue
-		}
-		err = c.Close()
-		if err != nil {
-			return err
-		}
-	}
-
-	if t.mfs == nil {
-		return nil
-	}
-
-	if err := unmount(t.Dir); err != nil {
-		return fmt.Errorf("unmount: %v", err)
-	}
-
-	if err := os.Remove(t.Dir); err != nil {
-		return fmt.Errorf("Unlinking mount point: %v", err)
-	}
-
-	if err := t.mfs.Join(t.Ctx); err != nil {
-		return fmt.Errorf("mfs.Join: %v", err)
-	}
-
-	return nil
-}
-
-func cleanup() {
-	os.RemoveAll("home/jakobwaibel/mountpoint")
-}
-
-func unmount(dir string) error {
-	delay := 10 * time.Millisecond
-	for {
-		err := fuse.Unmount(dir)
-		if err == nil {
-			return err
-		}
-
-		if strings.Contains(err.Error(), "resource busy") {
-			log.Println("Resource busy! Error while unmounting; trying again")
-			time.Sleep(delay)
-			delay = time.Duration(1.3 * float64(delay))
-			continue
-		}
-	}
 }

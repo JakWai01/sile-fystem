@@ -308,8 +308,6 @@ func TestModifyExistingFileInRoot(t *testing.T) {
 		t.Fail()
 	}
 
-	test.ToClose = append(test.ToClose, f)
-
 	n, err = f.WriteAt([]byte("H"), 0)
 	if err != nil {
 		t.Fail()
@@ -387,8 +385,6 @@ func TestModifyExistingFileInSubDir(t *testing.T) {
 		t.Fail()
 	}
 
-	test.ToClose = append(test.ToClose, f)
-
 	n, err = f.WriteAt([]byte("H"), 0)
 	if err != nil {
 		t.Fail()
@@ -460,8 +456,6 @@ func TestUnlinkFileStillOpen(t *testing.T) {
 		t.Fail()
 	}
 
-	test.ToClose = append(test.ToClose, f)
-
 	n, err := f.Write([]byte("tux"))
 	if err != nil {
 		t.Fail()
@@ -530,8 +524,6 @@ func TestLargeFile(t *testing.T) {
 		t.Fail()
 	}
 
-	test.ToClose = append(test.ToClose, f)
-
 	const size = 1 << 24
 	contents := bytes.Repeat([]byte{0x20}, size)
 
@@ -569,8 +561,6 @@ func TestAppendMode(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-
-	test.ToClose = append(test.ToClose, f)
 
 	off, err = f.Seek(2, 0)
 	if err != nil {
