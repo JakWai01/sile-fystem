@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JakWai01/sile-fystem/internal/logging"
+	"github.com/JakWai01/sile-fystem/pkg/logging"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -34,10 +34,10 @@ type fileSystem struct {
 	uid uint32
 	gid uint32
 
-	log *logging.JSONLogger
+	log logging.StructuredLogger
 }
 
-func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logger *logging.JSONLogger, backend afero.Fs) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logger logging.StructuredLogger, backend afero.Fs) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]*inode),
 		root:    root,
