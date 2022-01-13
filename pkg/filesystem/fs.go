@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/JakWai01/sile-fystem/pkg/helpers"
 	"github.com/JakWai01/sile-fystem/pkg/logging"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
@@ -53,6 +54,8 @@ func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logge
 		Uid:  uid,
 		Gid:  gid,
 	}
+
+	fs.buildIndex(root)
 
 	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, mountpoint, root, rootAttrs)
 
@@ -881,13 +884,29 @@ func (fs *fileSystem) buildIndex(root string) error {
 
 	// Open all files and Stat to create the nodes
 
-	// Write current root to map
-	// fs.inodes[hash(root)] = root
-
 	file, err := fs.backend.Open(root)
 	if err != nil {
 		panic(err)
 	}
+
+	info, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	// Write current root to map
+	attrs := fuseops.InodeAttributes{
+		Size:   uint64(info.Size()),
+		Mode:   info.Mode(),
+		Atime:  info.ModTime(),
+		Mtime:  info.ModTime(),
+		Ctime:  info.ModTime(),
+		Crtime: info.ModTime(),
+		Uid:    helpers.CurrentUid(),
+		Gid:    helpers.CurrentGid(),
+	}
+
+	fs.inodes[hash(root)] = newInode(hash(root), info.Name(), root, attrs)
 
 	children, err := file.Readdir(-1)
 	if err != nil {
@@ -897,7 +916,10 @@ func (fs *fileSystem) buildIndex(root string) error {
 	for _, child := range children {
 		print(child.Name())
 		if child.IsDir() {
+			fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_Directory)
 			fs.buildIndex(concatPath(root, child.Name()))
+		} else {
+			fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_File)
 		}
 	}
 
