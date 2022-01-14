@@ -916,19 +916,21 @@ func (fs *fileSystem) buildIndex(root string) error {
 
 	fs.inodes[hash(root)] = newInode(hash(root), info.Name(), root, attrs)
 
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
+	if info.IsDir() {
+		children, err := file.Readdir(-1)
+		if err != nil {
+			panic(err)
+		}
 
-	for _, child := range children {
-		print(child.Name())
-		if child.IsDir() {
-			fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_Directory)
-			fs.buildIndex(concatPath(root, child.Name()))
-		} else {
-			fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_File)
-			fs.buildIndex(concatPath(root, child.Name()))
+		for _, child := range children {
+			print(child.Name())
+			if child.IsDir() {
+				fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_Directory)
+				fs.buildIndex(concatPath(root, child.Name()))
+			} else {
+				fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_File)
+				fs.buildIndex(concatPath(root, child.Name()))
+			}
 		}
 	}
 
