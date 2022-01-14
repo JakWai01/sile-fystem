@@ -67,6 +67,14 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 		"id": id,
 	})
 
+	for _, inode := range fs.inodes {
+		fs.log.Trace("FUSE.getInodeOrDieInode", map[string]interface{}{
+			"id":   inode.id,
+			"name": inode.name,
+			"path": inode.path,
+		})
+	}
+
 	inode := fs.inodes[id]
 	if inode == nil {
 		panic(fmt.Sprintf("Unknown inode: %v", id))
@@ -920,6 +928,7 @@ func (fs *fileSystem) buildIndex(root string) error {
 			fs.buildIndex(concatPath(root, child.Name()))
 		} else {
 			fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_File)
+			fs.buildIndex(concatPath(root, child.Name()))
 		}
 	}
 

@@ -191,7 +191,10 @@ var mountCmd = &cobra.Command{
 		}
 
 		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpointFlag), root, l, fs)
-		cfg := &fuse.MountConfig{}
+		cfg := &fuse.MountConfig{
+			ReadOnly:                  false,
+			DisableDefaultPermissions: false,
+		}
 
 		mfs, err := fuse.Mount(viper.GetString(mountpointFlag), serve, cfg)
 		if err != nil {
