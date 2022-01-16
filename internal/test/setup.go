@@ -21,17 +21,17 @@ type TestSetup struct {
 	mfs         *fuse.MountedFileSystem
 }
 
-func (t *TestSetup) Setup(l logging.StructuredLogger, backend afero.Fs) error {
+func (t *TestSetup) Setup(l logging.StructuredLogger, osfs bool) error {
 	t.MountConfig.DisableWritebackCaching = true
 
 	cfg := t.MountConfig
 
-	err := t.initialize(context.Background(), &cfg, l, backend)
+	err := t.initialize(context.Background(), &cfg, l, osfs)
 
 	return err
 }
 
-func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l logging.StructuredLogger, backend afero.Fs) error {
+func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l logging.StructuredLogger, osfs bool) error {
 	t.Ctx = ctx
 
 	if config.OpContext == nil {
@@ -49,11 +49,13 @@ func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l 
 		return fmt.Errorf("TempDir2: %v", err)
 	}
 
-	// OsFs
-	t.Server = filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), t.Dir, t.TestDir, l, backend)
+	if osfs {
+		t.Server = filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), t.Dir, t.TestDir, l, afero.NewOsFs())
+	}
 
-	// MemMapFs
-	// t.Server = filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), t.Dir, "/", l, backend)
+	if !osfs {
+		t.Server = filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), t.Dir, "/", l, afero.NewMemMapFs())
+	}
 
 	t.mfs, err = fuse.Mount(t.Dir, t.Server, config)
 	if err != nil {

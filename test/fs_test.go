@@ -10,17 +10,10 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	internal "github.com/JakWai01/sile-fystem/internal/test"
 	"github.com/JakWai01/sile-fystem/pkg/helpers"
-	"github.com/spf13/afero"
-)
-
-const (
-	fileMode = 0754
-	timeSlop = 25 * time.Millisecond
 )
 
 var (
@@ -32,28 +25,22 @@ func TestFileSystemSetup(t *testing.T) {
 
 	l := logging.NewJSONLogger(*verbosity)
 
-	err := test.Setup(l, afero.NewOsFs())
+	err := test.Setup(l, true)
+	if err != nil {
+		t.Fail()
+	}
+
+	test = internal.TestSetup{}
+
+	l = logging.NewJSONLogger(*verbosity)
+
+	err = test.Setup(l, true)
 	if err != nil {
 		t.Fail()
 	}
 }
 
-func Setup() *internal.TestSetup {
-	test := internal.TestSetup{}
-
-	l := logging.NewJSONLogger(*verbosity)
-
-	err := test.Setup(l, afero.NewOsFs())
-	if err != nil {
-		panic(err)
-	}
-
-	return &test
-}
-
-func TestMkdirOneLevel(t *testing.T) {
-	test := Setup()
-
+func testMkDirOneLevel(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -97,8 +84,15 @@ func TestMkdirOneLevel(t *testing.T) {
 	}
 }
 
-func TestMkdirTwoLevels(t *testing.T) {
-	test := Setup()
+func TestMkdirOneLevel(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testMkDirOneLevel(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testMkDirOneLevel(testMemMapFs, t)
+}
+
+func testMkdirTwoLevels(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -150,8 +144,15 @@ func TestMkdirTwoLevels(t *testing.T) {
 	}
 }
 
-func TestMkdirIntermediateIsFile(t *testing.T) {
-	test := Setup()
+func TestMkdirTwoLevels(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testMkdirTwoLevels(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testMkdirTwoLevels(testMemMapFs, t)
+}
+
+func testMkdirIntermediateIsFile(test *internal.TestSetup, t *testing.T) {
 	var err error
 
 	fileName := path.Join(test.Dir, "foo")
@@ -173,8 +174,15 @@ func TestMkdirIntermediateIsFile(t *testing.T) {
 	}
 }
 
-func TestMkdirIntermediateIsNonExistent(t *testing.T) {
-	test := Setup()
+func TestMkdirIntermediateIsFile(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testMkdirIntermediateIsFile(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testMkdirIntermediateIsFile(testMemMapFs, t)
+}
+
+func testMkdirIntermediateIsNonExistent(test *internal.TestSetup, t *testing.T) {
 	var err error
 
 	dirName := path.Join(test.Dir, "foo/dir")
@@ -189,8 +197,15 @@ func TestMkdirIntermediateIsNonExistent(t *testing.T) {
 	}
 }
 
-func TestCreateNewFileInRoot(t *testing.T) {
-	test := Setup()
+func TestMkdirIntermediateIsNonExistent(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testMkdirIntermediateIsNonExistent(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testMkdirIntermediateIsNonExistent(testMemMapFs, t)
+}
+
+func testCreateNewFileInRoot(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -244,8 +259,15 @@ func TestCreateNewFileInRoot(t *testing.T) {
 	}
 }
 
-func TestCreateNewFileInSubDir(t *testing.T) {
-	test := Setup()
+func TestCreateNewFileInRoot(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testCreateNewFileInRoot(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testCreateNewFileInRoot(testMemMapFs, t)
+}
+
+func testCreateNewFileInSubDir(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -306,8 +328,15 @@ func TestCreateNewFileInSubDir(t *testing.T) {
 	}
 }
 
-func TestModifyExistingFileInRoot(t *testing.T) {
-	test := Setup()
+func TestCreateNewFileInSubDir(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testCreateNewFileInSubDir(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testCreateNewFileInSubDir(testMemMapFs, t)
+}
+
+func testModifyExistingFileInRoot(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var n int
 	var fi os.FileInfo
@@ -377,8 +406,15 @@ func TestModifyExistingFileInRoot(t *testing.T) {
 	f.Close()
 }
 
-func TestModifyExistingFileInSubDir(t *testing.T) {
-	test := Setup()
+func TestModifyExistingFileInRoot(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testModifyExistingFileInRoot(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testModifyExistingFileInRoot(testMemMapFs, t)
+}
+
+func testModifyExistingFileInSubDir(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var n int
 	var fi os.FileInfo
@@ -455,8 +491,15 @@ func TestModifyExistingFileInSubDir(t *testing.T) {
 	f.Close()
 }
 
-func TestUnlinkFileNonExistent(t *testing.T) {
-	test := Setup()
+func TestModifyExistingFileInSubDir(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testModifyExistingFileInSubDir(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testModifyExistingFileInSubDir(testMemMapFs, t)
+}
+
+func testUnlinkFileNonExistent(test *internal.TestSetup, t *testing.T) {
 	err := os.Remove(path.Join(test.Dir, "foo3"))
 	if err == nil {
 		t.Fail()
@@ -467,8 +510,15 @@ func TestUnlinkFileNonExistent(t *testing.T) {
 	}
 }
 
-func TestUnlinkFileStillOpen(t *testing.T) {
-	test := Setup()
+func TestUnlinkFileNonExistent(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testUnlinkFileNonExistent(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testUnlinkFileNonExistent(testMemMapFs, t)
+}
+
+func testUnlinkFileStillOpen(test *internal.TestSetup, t *testing.T) {
 	fileName := path.Join(test.Dir, "foo4")
 
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0600)
@@ -525,8 +575,15 @@ func TestUnlinkFileStillOpen(t *testing.T) {
 	f.Close()
 }
 
-func TestRmdirNonExistent(t *testing.T) {
-	test := Setup()
+func TestUnlinkFileStillOpen(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testUnlinkFileStillOpen(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testUnlinkFileStillOpen(testMemMapFs, t)
+}
+
+func testRmDirNonExistent(test *internal.TestSetup, t *testing.T) {
 	err := os.Remove(path.Join(test.Dir, "harry"))
 	if err == nil {
 		t.Fail()
@@ -537,8 +594,15 @@ func TestRmdirNonExistent(t *testing.T) {
 	}
 }
 
-func TestLargeFile(t *testing.T) {
-	test := Setup()
+func TestRmdirNonExistent(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testRmDirNonExistent(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testRmDirNonExistent(testMemMapFs, t)
+}
+
+func testLargeFile(test *internal.TestSetup, t *testing.T) {
 	var err error
 
 	f, err := os.Create(path.Join(test.Dir, "foo7"))
@@ -566,8 +630,15 @@ func TestLargeFile(t *testing.T) {
 	f.Close()
 }
 
-func TestAppendMode(t *testing.T) {
-	test := Setup()
+func TestLargeFile(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testLargeFile(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testLargeFile(testMemMapFs, t)
+}
+
+func testAppendMode(test *internal.TestSetup, t *testing.T) {
 	var err error
 	var n int
 	var off int64
@@ -624,8 +695,15 @@ func TestAppendMode(t *testing.T) {
 	f.Close()
 }
 
-func TestChmod(t *testing.T) {
-	test := Setup()
+func TestAppendMode(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testAppendMode(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testAppendMode(testMemMapFs, t)
+}
+
+func testChmod(test *internal.TestSetup, t *testing.T) {
 	var err error
 
 	fileName := path.Join(test.Dir, "foo9")
@@ -649,8 +727,15 @@ func TestChmod(t *testing.T) {
 	}
 }
 
-func TestRenameWithinDirFile(t *testing.T) {
-	test := Setup()
+func TestChmod(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testChmod(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testChmod(testMemMapFs, t)
+}
+
+func testRenameWithinDirFile(test *internal.TestSetup, t *testing.T) {
 	var err error
 
 	parentPath := path.Join(test.Dir, "parent2")
@@ -695,7 +780,28 @@ func TestRenameWithinDirFile(t *testing.T) {
 
 }
 
+func TestRenameWithinDirFile(t *testing.T) {
+	testOsFs := setupTestingEnvironment(true)
+	testRenameWithinDirFile(testOsFs, t)
+
+	testMemMapFs := setupTestingEnvironment(false)
+	testRenameWithinDirFile(testMemMapFs, t)
+}
+
 func getFileOffset(f *os.File) (offset int64, err error) {
 	const relativeToCurrent = 1
 	return f.Seek(0, relativeToCurrent)
+}
+
+func setupTestingEnvironment(osfs bool) *internal.TestSetup {
+	test := internal.TestSetup{}
+
+	l := logging.NewJSONLogger(*verbosity)
+
+	err := test.Setup(l, osfs)
+	if err != nil {
+		panic(err)
+	}
+
+	return &test
 }
