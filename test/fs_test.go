@@ -14,7 +14,6 @@ import (
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	internal "github.com/JakWai01/sile-fystem/internal/test"
-	"github.com/JakWai01/sile-fystem/pkg/filesystem"
 	"github.com/JakWai01/sile-fystem/pkg/helpers"
 	"github.com/spf13/afero"
 )
@@ -34,7 +33,7 @@ func TestFileSystemSetup(t *testing.T) {
 
 	l := logging.NewJSONLogger(*verbosity)
 
-	err := test.Setup(filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), test.Dir, "/", l, afero.NewMemMapFs()))
+	err := test.Setup(l, afero.NewOsFs())
 	if err != nil {
 		t.Fail()
 	}
@@ -235,7 +234,7 @@ func TestCreateNewFileInSubDir(t *testing.T) {
 
 	dirName := path.Join(test.Dir, "dir2")
 
-	err = os.Mkdir(dirName, 0700)
+	err = os.Mkdir(dirName, 0777)
 	if err != nil {
 		t.Fail()
 	}
@@ -243,7 +242,7 @@ func TestCreateNewFileInSubDir(t *testing.T) {
 	fileName := path.Join(dirName, "foo")
 	const contents = "Hello\x00world"
 
-	err = ioutil.WriteFile(fileName, []byte(contents), 0400)
+	err = ioutil.WriteFile(fileName, []byte(contents), 0777)
 	if err != nil {
 		t.Fail()
 	}
@@ -295,7 +294,6 @@ func TestModifyExistingFileInRoot(t *testing.T) {
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
 
-	// Write a file
 	fileName := path.Join(test.Dir, "foo2")
 
 	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), 0600)
@@ -637,7 +635,7 @@ func TestRenameWithinDirFile(t *testing.T) {
 
 	oldPath := path.Join(parentPath, "foo10")
 
-	err = ioutil.WriteFile(oldPath, []byte("taco"), 0400)
+	err = ioutil.WriteFile(oldPath, []byte("taco"), 0777)
 	if err != nil {
 		t.Fail()
 	}
