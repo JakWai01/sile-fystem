@@ -24,12 +24,11 @@ const (
 )
 
 var (
-	test      internal.TestSetup
 	verbosity = flag.Int("verbosity", 2, "Verbosity of the logging output")
 )
 
 func TestFileSystemSetup(t *testing.T) {
-	test = internal.TestSetup{}
+	test := internal.TestSetup{}
 
 	l := logging.NewJSONLogger(*verbosity)
 
@@ -39,7 +38,22 @@ func TestFileSystemSetup(t *testing.T) {
 	}
 }
 
+func Setup() *internal.TestSetup {
+	test := internal.TestSetup{}
+
+	l := logging.NewJSONLogger(*verbosity)
+
+	err := test.Setup(l, afero.NewOsFs())
+	if err != nil {
+		panic(err)
+	}
+
+	return &test
+}
+
 func TestMkdirOneLevel(t *testing.T) {
+	test := Setup()
+
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -51,7 +65,6 @@ func TestMkdirOneLevel(t *testing.T) {
 		t.Fail()
 	}
 
-	// Stat the directory.
 	fi, err = os.Stat(dirName)
 	if err != nil {
 		t.Fail()
@@ -85,6 +98,7 @@ func TestMkdirOneLevel(t *testing.T) {
 }
 
 func TestMkdirTwoLevels(t *testing.T) {
+	test := Setup()
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -137,6 +151,7 @@ func TestMkdirTwoLevels(t *testing.T) {
 }
 
 func TestMkdirIntermediateIsFile(t *testing.T) {
+	test := Setup()
 	var err error
 
 	fileName := path.Join(test.Dir, "foo")
@@ -159,21 +174,23 @@ func TestMkdirIntermediateIsFile(t *testing.T) {
 }
 
 func TestMkdirIntermediateIsNonExistent(t *testing.T) {
+	test := Setup()
 	var err error
 
 	dirName := path.Join(test.Dir, "foo/dir")
 
-	err = os.Mkdir(dirName, 0754)
+	err = os.Mkdir(dirName, 0777)
 	if err == nil {
 		t.Fail()
 	}
 
-	if !strings.Contains(err.Error(), "not a directory") {
+	if !strings.Contains(err.Error(), "no such file or directory") {
 		t.Fail()
 	}
 }
 
 func TestCreateNewFileInRoot(t *testing.T) {
+	test := Setup()
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -181,7 +198,7 @@ func TestCreateNewFileInRoot(t *testing.T) {
 	fileName := path.Join(test.Dir, "foo")
 	const contents = "Hello\x00world"
 
-	err = ioutil.WriteFile(fileName, []byte(contents), 0400)
+	err = ioutil.WriteFile(fileName, []byte(contents), 0777)
 	if err != nil {
 		t.Fail()
 	}
@@ -228,6 +245,7 @@ func TestCreateNewFileInRoot(t *testing.T) {
 }
 
 func TestCreateNewFileInSubDir(t *testing.T) {
+	test := Setup()
 	var err error
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
@@ -289,6 +307,7 @@ func TestCreateNewFileInSubDir(t *testing.T) {
 }
 
 func TestModifyExistingFileInRoot(t *testing.T) {
+	test := Setup()
 	var err error
 	var n int
 	var fi os.FileInfo
@@ -296,12 +315,12 @@ func TestModifyExistingFileInRoot(t *testing.T) {
 
 	fileName := path.Join(test.Dir, "foo2")
 
-	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), 0600)
+	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), 0777)
 	if err != nil {
 		t.Fail()
 	}
 
-	f, err := os.OpenFile(fileName, os.O_WRONLY, 0400)
+	f, err := os.OpenFile(fileName, os.O_WRONLY, 0777)
 	if err != nil {
 		t.Fail()
 	}
@@ -359,6 +378,7 @@ func TestModifyExistingFileInRoot(t *testing.T) {
 }
 
 func TestModifyExistingFileInSubDir(t *testing.T) {
+	test := Setup()
 	var err error
 	var n int
 	var fi os.FileInfo
@@ -436,6 +456,7 @@ func TestModifyExistingFileInSubDir(t *testing.T) {
 }
 
 func TestUnlinkFileNonExistent(t *testing.T) {
+	test := Setup()
 	err := os.Remove(path.Join(test.Dir, "foo3"))
 	if err == nil {
 		t.Fail()
@@ -447,6 +468,7 @@ func TestUnlinkFileNonExistent(t *testing.T) {
 }
 
 func TestUnlinkFileStillOpen(t *testing.T) {
+	test := Setup()
 	fileName := path.Join(test.Dir, "foo4")
 
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0600)
@@ -504,6 +526,7 @@ func TestUnlinkFileStillOpen(t *testing.T) {
 }
 
 func TestRmdirNonExistent(t *testing.T) {
+	test := Setup()
 	err := os.Remove(path.Join(test.Dir, "harry"))
 	if err == nil {
 		t.Fail()
@@ -515,6 +538,7 @@ func TestRmdirNonExistent(t *testing.T) {
 }
 
 func TestLargeFile(t *testing.T) {
+	test := Setup()
 	var err error
 
 	f, err := os.Create(path.Join(test.Dir, "foo7"))
@@ -543,6 +567,7 @@ func TestLargeFile(t *testing.T) {
 }
 
 func TestAppendMode(t *testing.T) {
+	test := Setup()
 	var err error
 	var n int
 	var off int64
@@ -600,6 +625,7 @@ func TestAppendMode(t *testing.T) {
 }
 
 func TestChmod(t *testing.T) {
+	test := Setup()
 	var err error
 
 	fileName := path.Join(test.Dir, "foo9")
@@ -624,6 +650,7 @@ func TestChmod(t *testing.T) {
 }
 
 func TestRenameWithinDirFile(t *testing.T) {
+	test := Setup()
 	var err error
 
 	parentPath := path.Join(test.Dir, "parent2")
