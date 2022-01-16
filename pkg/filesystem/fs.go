@@ -198,30 +198,28 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 		err = syscall.EBADF
 	}
 
-	// inode := fs.getInodeOrDie(op.Inode)
+	inode := fs.getInodeOrDie(op.Inode)
 
-	// Send updated Mode to afero
-	// err = fs.backend.Chmod(inode.path, op.Attributes.Mode)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	if op.Mode != nil {
+		err = fs.backend.Chmod(inode.path, *op.Mode)
+		if err != nil {
+			panic(err)
+		}
+		op.Attributes.Mode = *op.Mode
+	}
 
-	// Send updated Uid and Gid to afero
-	// err = fs.backend.Chown(inode.path, int(op.Attributes.Uid), int(op.Attributes.Gid))
-	// if err != nil {
-	// 	panic(err)
-	// }
+	if op.Atime != nil && op.Mtime != nil {
+		err = fs.backend.Chtimes(inode.path, op.Attributes.Atime, op.Attributes.Mtime)
+		if err != nil {
+			panic(err)
+		}
+		op.Attributes.Atime = *op.Atime
+		op.Attributes.Mtime = *op.Mtime
+	}
 
-	// Send updated Atime and Mtime to afero
-	// fs.backend.Chtimes(inode.path, op.Attributes.Atime, op.Attributes.Mtime)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	op.Size = &op.Attributes.Size
-	op.Mode = &op.Attributes.Mode
-	op.Atime = &op.Attributes.Atime
-	op.Mtime = &op.Attributes.Mtime
+	if op.Size != nil {
+		op.Attributes.Size = *op.Size
+	}
 
 	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 

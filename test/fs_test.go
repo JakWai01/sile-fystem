@@ -601,30 +601,29 @@ func TestAppendMode(t *testing.T) {
 	f.Close()
 }
 
-// func TestChmod(t *testing.T) {
-// 	var err error
+func TestChmod(t *testing.T) {
+	var err error
 
-// 	fileName := path.Join(test.Dir, "foo9")
+	fileName := path.Join(test.Dir, "foo9")
 
-// 	err = ioutil.WriteFile(fileName, []byte(""), 0600)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	err = ioutil.WriteFile(fileName, []byte(""), 0600)
+	if err != nil {
+		panic(err)
+	}
 
-// 	err = os.Chmod(fileName, 0754)
-// 	if err != nil {
-// 	}
+	err = os.Chmod(fileName, 0754)
+	if err != nil {
+	}
 
-// 	fi, err := os.Stat(fileName)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	fi, err := os.Stat(fileName)
+	if err != nil {
+		panic(err)
+	}
 
-// 	// FIXME
-// 	if fi.Mode() != os.FileMode(0754) {
-// 		t.Fail()
-// 	}
-// }
+	if fi.Mode() != os.FileMode(0754) {
+		t.Fail()
+	}
+}
 
 func TestRenameWithinDirFile(t *testing.T) {
 	var err error

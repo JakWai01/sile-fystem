@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	mountpoint = "mp"
+	mountpoint = "mountpoint"
 )
 
 var memFsCmd = &cobra.Command{
@@ -30,7 +30,6 @@ var memFsCmd = &cobra.Command{
 			DisableDefaultPermissions: false,
 		}
 
-		// Mount the fuse.Server we created earlier
 		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)

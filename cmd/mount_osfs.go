@@ -30,8 +30,7 @@ var osFsCmd = &cobra.Command{
 			DisableDefaultPermissions: false,
 		}
 
-		// Mount the fuse.Server we created earlier
-		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
+		mfs, err := fuse.Mount(viper.GetString(mountp), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
