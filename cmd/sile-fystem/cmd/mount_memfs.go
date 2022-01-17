@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	"github.com/JakWai01/sile-fystem/pkg/filesystem"
@@ -13,15 +14,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	mountpoint = "mountpoint"
-)
-
 var memFsCmd = &cobra.Command{
 	Use:   "memfs",
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := logging.NewJSONLogger(5)
+
+		os.MkdirAll(viper.GetString(mountpoint), os.ModePerm)
 
 		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpoint), "", logger, afero.NewMemMapFs())
 
@@ -46,7 +45,6 @@ var memFsCmd = &cobra.Command{
 func init() {
 	memFsCmd.PersistentFlags().String(mountpoint, "", "mount")
 
-	// Bind env variables
 	if err := viper.BindPFlags(memFsCmd.PersistentFlags()); err != nil {
 		log.Fatal("could not bind flags:", err)
 	}

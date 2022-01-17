@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	"github.com/JakWai01/sile-fystem/pkg/filesystem"
@@ -13,8 +15,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	mountp = "mp"
+var (
+	storageFlag = "storage"
 )
 
 var osFsCmd = &cobra.Command{
@@ -23,14 +25,17 @@ var osFsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := logging.NewJSONLogger(5)
 
-		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountp), "/home/jakobwaibel/Downloads/test", logger, afero.NewOsFs())
+		os.MkdirAll(viper.GetString(storageFlag), os.ModePerm)
+		os.MkdirAll(viper.GetString(mountpoint), os.ModePerm)
+
+		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpoint), viper.GetString(storageFlag), logger, afero.NewOsFs())
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
 			DisableDefaultPermissions: false,
 		}
 
-		mfs, err := fuse.Mount(viper.GetString(mountp), serve, cfg)
+		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
@@ -44,9 +49,8 @@ var osFsCmd = &cobra.Command{
 }
 
 func init() {
-	osFsCmd.PersistentFlags().String(mountp, "", "mount")
+	osFsCmd.PersistentFlags().String(storageFlag, filepath.Join(os.TempDir(), "drive"), "Declare folder where data is stored")
 
-	// Bind env variables
 	if err := viper.BindPFlags(osFsCmd.PersistentFlags()); err != nil {
 		log.Fatal("could not bind flags:", err)
 	}

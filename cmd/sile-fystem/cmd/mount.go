@@ -22,8 +22,6 @@ import (
 )
 
 const (
-	mountpointFlag = "mountpoint"
-
 	driveFlag      = "drive"
 	recordSizeFlag = "recordSize"
 	writeCacheFlag = "writeCache"
@@ -128,13 +126,13 @@ var mountCmd = &cobra.Command{
 			panic(err)
 		}
 
-		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpointFlag), root, l, fs)
+		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpoint), root, l, fs)
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
 			DisableDefaultPermissions: false,
 		}
 
-		mfs, err := fuse.Mount(viper.GetString(mountpointFlag), serve, cfg)
+		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
 		}
@@ -148,13 +146,10 @@ var mountCmd = &cobra.Command{
 }
 
 func init() {
-	mountCmd.PersistentFlags().String(mountpointFlag, "/tmp/mount", "Mountpoint to use for FUSE")
-
 	mountCmd.PersistentFlags().String(driveFlag, "/dev/nst0", "Tape drive or tar archive to use as backend")
 	mountCmd.PersistentFlags().Int(recordSizeFlag, 20, "Amount of 512-bit blocks per second")
 	mountCmd.PersistentFlags().String(writeCacheFlag, filepath.Join(os.TempDir(), "stfs-write-cache"), "Directory to use for write cache")
 
-	// Bind env variables
 	if err := viper.BindPFlags(mountCmd.PersistentFlags()); err != nil {
 		log.Fatal("could not bind flags:", err)
 	}

@@ -12,6 +12,7 @@ import (
 const (
 	verboseFlag  = "verbose"
 	metadataFlag = "metadata"
+	mountpoint   = "mountpoint"
 )
 
 var rootCmd = &cobra.Command{
@@ -32,6 +33,17 @@ func Execute() error {
 
 	rootCmd.PersistentFlags().IntP(verboseFlag, "v", 2, fmt.Sprintf("Verbosity level (default %v)", 2))
 	rootCmd.PersistentFlags().StringP(metadataFlag, "m", metadataPath, "Metadata database to use")
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
+	mountPath := filepath.Join(homeDir, filepath.Join("Documents", "mount"))
+	// call mkdirall when mountPath is used
+	os.MkdirAll(mountPath, os.ModePerm)
+
+	rootCmd.PersistentFlags().String(mountpoint, mountPath, "Mountpoint")
 
 	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		return err
