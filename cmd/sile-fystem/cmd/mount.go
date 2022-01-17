@@ -32,6 +32,8 @@ var mountCmd = &cobra.Command{
 	Short: "Mount a folder on a given path",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
+		os.MkdirAll(viper.GetString(mountpoint), os.ModePerm)
+
 		l := logging.NewJSONLogger(viper.GetInt(verboseFlag))
 
 		tm := tape.NewTapeManager(
