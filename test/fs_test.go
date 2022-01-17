@@ -47,7 +47,7 @@ func testMkDirOneLevel(test *internal.TestSetup, t *testing.T) {
 
 	dirName := path.Join(test.Dir, "dir")
 
-	err = os.Mkdir(dirName, 0754)
+	err = os.Mkdir(dirName, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -97,12 +97,12 @@ func testMkdirTwoLevels(test *internal.TestSetup, t *testing.T) {
 	var fi os.FileInfo
 	var stat *syscall.Stat_t
 
-	err = os.Mkdir(path.Join(test.Dir, "parent"), 0700)
+	err = os.Mkdir(path.Join(test.Dir, "parent"), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
-	err = os.Mkdir(path.Join(test.Dir, "parent/dir"), 0754)
+	err = os.Mkdir(path.Join(test.Dir, "parent/dir"), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -157,14 +157,14 @@ func testMkdirIntermediateIsFile(test *internal.TestSetup, t *testing.T) {
 
 	fileName := path.Join(test.Dir, "foo")
 
-	err = ioutil.WriteFile(fileName, []byte{}, 0700)
+	err = ioutil.WriteFile(fileName, []byte{}, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
 	dirName := path.Join(fileName, "dir")
 
-	err = os.Mkdir(dirName, 0754)
+	err = os.Mkdir(dirName, os.ModePerm)
 	if err == nil {
 		t.Fail()
 	}
@@ -187,7 +187,7 @@ func testMkdirIntermediateIsNonExistent(test *internal.TestSetup, t *testing.T) 
 
 	dirName := path.Join(test.Dir, "foo/dir")
 
-	err = os.Mkdir(dirName, 0777)
+	err = os.Mkdir(dirName, os.ModePerm)
 	if err == nil {
 		t.Fail()
 	}
@@ -213,7 +213,7 @@ func testCreateNewFileInRoot(test *internal.TestSetup, t *testing.T) {
 	fileName := path.Join(test.Dir, "foo")
 	const contents = "Hello\x00world"
 
-	err = ioutil.WriteFile(fileName, []byte(contents), 0777)
+	err = ioutil.WriteFile(fileName, []byte(contents), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -274,7 +274,7 @@ func testCreateNewFileInSubDir(test *internal.TestSetup, t *testing.T) {
 
 	dirName := path.Join(test.Dir, "dir2")
 
-	err = os.Mkdir(dirName, 0777)
+	err = os.Mkdir(dirName, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -282,7 +282,7 @@ func testCreateNewFileInSubDir(test *internal.TestSetup, t *testing.T) {
 	fileName := path.Join(dirName, "foo")
 	const contents = "Hello\x00world"
 
-	err = ioutil.WriteFile(fileName, []byte(contents), 0777)
+	err = ioutil.WriteFile(fileName, []byte(contents), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -344,12 +344,12 @@ func testModifyExistingFileInRoot(test *internal.TestSetup, t *testing.T) {
 
 	fileName := path.Join(test.Dir, "foo2")
 
-	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), 0777)
+	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
-	f, err := os.OpenFile(fileName, os.O_WRONLY, 0777)
+	f, err := os.OpenFile(fileName, os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -422,19 +422,19 @@ func testModifyExistingFileInSubDir(test *internal.TestSetup, t *testing.T) {
 
 	dirName := path.Join(test.Dir, "dir3")
 
-	err = os.Mkdir(dirName, 0700)
+	err = os.Mkdir(dirName, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
 	fileName := path.Join(dirName, "foo")
 
-	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), 0600)
+	err = ioutil.WriteFile(fileName, []byte("Hello, world!"), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
-	f, err := os.OpenFile(fileName, os.O_WRONLY, 0400)
+	f, err := os.OpenFile(fileName, os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -521,7 +521,7 @@ func TestUnlinkFileNonExistent(t *testing.T) {
 func testUnlinkFileStillOpen(test *internal.TestSetup, t *testing.T) {
 	fileName := path.Join(test.Dir, "foo4")
 
-	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0600)
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -646,12 +646,12 @@ func testAppendMode(test *internal.TestSetup, t *testing.T) {
 
 	fileName := path.Join(test.Dir, "foo8")
 
-	err = ioutil.WriteFile(fileName, []byte("Jello, "), 0600)
+	err = ioutil.WriteFile(fileName, []byte("Jello, "), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
-	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND, 0600)
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
@@ -708,7 +708,7 @@ func testChmod(test *internal.TestSetup, t *testing.T) {
 
 	fileName := path.Join(test.Dir, "foo9")
 
-	err = ioutil.WriteFile(fileName, []byte(""), 0600)
+	err = ioutil.WriteFile(fileName, []byte(""), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
@@ -740,14 +740,14 @@ func testRenameWithinDirFile(test *internal.TestSetup, t *testing.T) {
 
 	parentPath := path.Join(test.Dir, "parent2")
 
-	err = os.Mkdir(parentPath, 0700)
+	err = os.Mkdir(parentPath, os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
 
 	oldPath := path.Join(parentPath, "foo10")
 
-	err = ioutil.WriteFile(oldPath, []byte("taco"), 0777)
+	err = ioutil.WriteFile(oldPath, []byte("taco"), os.ModePerm)
 	if err != nil {
 		t.Fail()
 	}
