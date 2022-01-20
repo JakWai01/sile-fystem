@@ -921,7 +921,6 @@ func (fs *fileSystem) buildIndex(root string) error {
 		}
 
 		for _, child := range children {
-			print(child.Name())
 			if child.IsDir() {
 				fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_Directory)
 				fs.buildIndex(concatPath(root, child.Name()))

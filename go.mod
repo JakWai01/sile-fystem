@@ -33,14 +33,14 @@ require (
 	golang.org/x/tools v0.1.8 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/gorp.v1 v1.7.2 // indirect
-	lukechampine.com/uint128 v1.1.1 // indirect
+	lukechampine.com/uint128 v1.2.0 // indirect
 	modernc.org/cc/v3 v3.35.22 // indirect
-	modernc.org/ccgo/v3 v3.14.0 // indirect
-	modernc.org/libc v1.13.2 // indirect
+	modernc.org/ccgo/v3 v3.15.11 // indirect
+	modernc.org/libc v1.14.3 // indirect
 	modernc.org/mathutil v1.4.1 // indirect
 	modernc.org/memory v1.0.5 // indirect
 	modernc.org/opt v0.1.1 // indirect
-	modernc.org/sqlite v1.14.4 // indirect
+	modernc.org/sqlite v1.14.5 // indirect
 	modernc.org/strutil v1.1.1 // indirect
 	modernc.org/token v1.0.0 // indirect
 )
@@ -54,7 +54,7 @@ require (
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
-	github.com/pojntfx/stfs v0.0.0-20220113181140-525c76da7e19
+	github.com/pojntfx/stfs v0.0.0-20220119164156-16765c5fcc89
 	github.com/spf13/afero v1.8.0
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/cobra v1.3.0
@@ -63,8 +63,8 @@ require (
 	github.com/spf13/viper v1.10.1
 	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d // indirect
-	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	gopkg.in/ini.v1 v1.66.2 // indirect
+	gopkg.in/ini.v1 v1.66.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

@@ -11,6 +11,7 @@ import (
 	"github.com/pojntfx/stfs/pkg/cache"
 	"github.com/pojntfx/stfs/pkg/config"
 	fs "github.com/pojntfx/stfs/pkg/fs"
+	"github.com/pojntfx/stfs/pkg/mtio"
 	"github.com/pojntfx/stfs/pkg/operations"
 	"github.com/pojntfx/stfs/pkg/persisters"
 	"github.com/pojntfx/stfs/pkg/tape"
@@ -36,8 +37,10 @@ var mountCmd = &cobra.Command{
 
 		l := logging.NewJSONLogger(viper.GetInt(verboseFlag))
 
+		mt := mtio.MagneticTapeIO{}
 		tm := tape.NewTapeManager(
 			viper.GetString(driveFlag),
+			mt,
 			viper.GetInt(recordSizeFlag),
 			false,
 		)
@@ -63,8 +66,7 @@ var mountCmd = &cobra.Command{
 			GetReader:   tm.GetReader,
 			CloseReader: tm.Close,
 
-			GetDrive:   tm.GetDrive,
-			CloseDrive: tm.Close,
+			MagneticTapeIO: mt,
 		}
 		readCryptoConfig := config.CryptoConfig{}
 
