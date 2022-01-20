@@ -29,7 +29,7 @@ const (
 
 var mountCmd = &cobra.Command{
 	Use:   "mount",
-	Short: "Mount a folder on a given path",
+	Short: "Mount a folder on a given path using STFS as backend",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		os.MkdirAll(viper.GetString(mountpoint), os.ModePerm)

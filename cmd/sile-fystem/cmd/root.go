@@ -16,7 +16,7 @@ const (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "sf",
+	Use:   "sile-fystem",
 	Short: "sile-fystem, a file-system",
 	Long: `sile-fystem, a file-system using FUSE."
 

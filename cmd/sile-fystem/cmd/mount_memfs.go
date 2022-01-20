@@ -16,7 +16,7 @@ import (
 
 var memFsCmd = &cobra.Command{
 	Use:   "memfs",
-	Short: "Mount a folder on a given path",
+	Short: "Mount a folder on a given path using afero.MemMapFs as backend",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := logging.NewJSONLogger(5)
 
