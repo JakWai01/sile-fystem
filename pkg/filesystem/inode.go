@@ -15,9 +15,11 @@ type inode struct {
 	path    string
 	attrs   fuseops.InodeAttributes
 	entries []fuseutil.Dirent
+
+	onError func(err interface{})
 }
 
-func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeAttributes) *inode {
+func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeAttributes, onError func(err interface{})) *inode {
 	now := time.Now()
 	attrs.Mtime = now
 	attrs.Crtime = now
@@ -27,6 +29,8 @@ func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeA
 		name:  name,
 		path:  path,
 		attrs: attrs,
+
+		onError: onError,
 	}
 }
 
@@ -78,7 +82,7 @@ func (in *inode) RemoveChild(name string) {
 
 	i, ok := in.findChild(name)
 	if !ok {
-		panic(fmt.Sprintf("Unknown child: %s", name))
+		in.onError(fmt.Sprintf("Unknown child: %s", name))
 	}
 
 	in.entries[i] = fuseutil.Dirent{
@@ -89,7 +93,7 @@ func (in *inode) RemoveChild(name string) {
 
 func (in *inode) findChild(name string) (i int, ok bool) {
 	if !in.isDir() {
-		panic("findChild called on non-directory")
+		in.onError("findChild called on non-directory")
 	}
 
 	var e fuseutil.Dirent
