@@ -882,7 +882,6 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 	return nil
 }
 
-// TODO: Update this function accordingly
 func (fs *fileSystem) buildIndex(root string) error {
 	fs.log.Trace("FUSE.buildIndex", map[string]interface{}{
 		"root": root,
