@@ -42,25 +42,21 @@ func (in *inode) isFile() bool {
 	return !(in.isDir() || in.isSymlink())
 }
 
-func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
+func (in *inode) addChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
 	var index int
 
-	// Update the modification time
 	in.attrs.Mtime = time.Now()
 
-	// No matter where we place the entry, make sure it has the correct Offset field
 	defer func() {
 		in.entries[index].Offset = fuseops.DirOffset(index + 1)
 	}()
 
-	// Set up the entry
 	e := fuseutil.Dirent{
 		Inode: id,
 		Name:  name,
 		Type:  dt,
 	}
 
-	// Look for a gap in which we can insert it
 	for index = range in.entries {
 		if in.entries[index].Type == fuseutil.DT_Unknown {
 			in.entries[index] = e
@@ -68,12 +64,11 @@ func (in *inode) AddChild(id fuseops.InodeID, name string, dt fuseutil.DirentTyp
 		}
 	}
 
-	// Append it to the end
 	index = len(in.entries)
 	in.entries = append(in.entries, e)
 }
 
-func (in *inode) RemoveChild(name string) {
+func (in *inode) removeChild(name string) {
 	in.attrs.Mtime = time.Now()
 
 	i, ok := in.findChild(name)
@@ -85,6 +80,16 @@ func (in *inode) RemoveChild(name string) {
 		Type:   fuseutil.DT_Unknown,
 		Offset: fuseops.DirOffset(i + 1),
 	}
+}
+
+func (in *inode) lookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {
+	index, ok := in.findChild(name)
+	if ok {
+		id = in.entries[index].Inode
+		typ = in.entries[index].Type
+	}
+
+	return id, typ, ok
 }
 
 func (in *inode) findChild(name string) (i int, ok bool) {
@@ -100,14 +105,4 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 	}
 
 	return 0, false
-}
-
-func (in *inode) LookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {
-	index, ok := in.findChild(name)
-	if ok {
-		id = in.entries[index].Inode
-		typ = in.entries[index].Type
-	}
-
-	return id, typ, ok
 }

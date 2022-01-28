@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 
 	"github.com/JakWai01/sile-fystem/pkg/filesystem"
-	"github.com/JakWai01/sile-fystem/pkg/helpers"
 	"github.com/JakWai01/sile-fystem/pkg/logging"
+	"github.com/JakWai01/sile-fystem/pkg/posix"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/afero"
 )
@@ -50,11 +50,11 @@ func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l 
 	}
 
 	if osfs {
-		t.Server = filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), t.Dir, t.TestDir, l, afero.NewOsFs())
+		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, t.TestDir, l, afero.NewOsFs())
 	}
 
 	if !osfs {
-		t.Server = filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), t.Dir, "/", l, afero.NewMemMapFs())
+		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, "/", l, afero.NewMemMapFs())
 	}
 
 	t.mfs, err = fuse.Mount(t.Dir, t.Server, config)

@@ -13,7 +13,7 @@ import (
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	internal "github.com/JakWai01/sile-fystem/internal/test"
-	"github.com/JakWai01/sile-fystem/pkg/helpers"
+	"github.com/JakWai01/sile-fystem/pkg/posix"
 )
 
 var (
@@ -71,11 +71,11 @@ func testMkDirOneLevel(test *internal.TestSetup, t *testing.T) {
 		t.Fail()
 	}
 
-	if helpers.CurrentUid() != stat.Uid {
+	if posix.CurrentUid() != stat.Uid {
 		t.Fail()
 	}
 
-	if helpers.CurrentGid() != stat.Gid {
+	if posix.CurrentGid() != stat.Gid {
 		t.Fail()
 	}
 
@@ -126,11 +126,11 @@ func testMkdirTwoLevels(test *internal.TestSetup, t *testing.T) {
 		t.Fail()
 	}
 
-	if helpers.CurrentUid() != stat.Uid {
+	if posix.CurrentUid() != stat.Uid {
 		t.Fail()
 	}
 
-	if helpers.CurrentGid() != stat.Gid {
+	if posix.CurrentGid() != stat.Gid {
 		t.Fail()
 	}
 
@@ -237,11 +237,11 @@ func testCreateNewFileInRoot(test *internal.TestSetup, t *testing.T) {
 		t.Fail()
 	}
 
-	if helpers.CurrentUid() != stat.Uid {
+	if posix.CurrentUid() != stat.Uid {
 		t.Fail()
 	}
 
-	if helpers.CurrentGid() != stat.Gid {
+	if posix.CurrentGid() != stat.Gid {
 		t.Fail()
 	}
 
@@ -306,11 +306,11 @@ func testCreateNewFileInSubDir(test *internal.TestSetup, t *testing.T) {
 		t.Fail()
 	}
 
-	if helpers.CurrentUid() != stat.Uid {
+	if posix.CurrentUid() != stat.Uid {
 		t.Fail()
 	}
 
-	if helpers.CurrentGid() != stat.Gid {
+	if posix.CurrentGid() != stat.Gid {
 		t.Fail()
 	}
 
@@ -382,11 +382,11 @@ func testModifyExistingFileInRoot(test *internal.TestSetup, t *testing.T) {
 		t.Fail()
 	}
 
-	if helpers.CurrentUid() != stat.Uid {
+	if posix.CurrentUid() != stat.Uid {
 		t.Fail()
 	}
 
-	if helpers.CurrentGid() != stat.Gid {
+	if posix.CurrentGid() != stat.Gid {
 		t.Fail()
 	}
 
@@ -467,11 +467,11 @@ func testModifyExistingFileInSubDir(test *internal.TestSetup, t *testing.T) {
 		t.Fail()
 	}
 
-	if helpers.CurrentUid() != stat.Uid {
+	if posix.CurrentUid() != stat.Uid {
 		t.Fail()
 	}
 
-	if helpers.CurrentGid() != stat.Gid {
+	if posix.CurrentGid() != stat.Gid {
 		t.Fail()
 	}
 

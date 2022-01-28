@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/JakWai01/sile-fystem/pkg/filesystem"
-	"github.com/JakWai01/sile-fystem/pkg/helpers"
+	"github.com/JakWai01/sile-fystem/pkg/posix"
 )
 
 const (
@@ -130,7 +130,7 @@ var mountCmd = &cobra.Command{
 			panic(err)
 		}
 
-		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpoint), root, l, fs)
+		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), root, l, fs)
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
 			DisableDefaultPermissions: false,

@@ -9,20 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/JakWai01/sile-fystem/pkg/helpers"
 	"github.com/JakWai01/sile-fystem/pkg/logging"
+	"github.com/JakWai01/sile-fystem/pkg/posix"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/jacobsa/syncutil"
 	"github.com/spf13/afero"
 )
-
-type InodeNotFound struct{}
-
-func (e *InodeNotFound) Error() string {
-	return "Inode not found in FUSE"
-}
 
 type fileSystem struct {
 	inodes  map[fuseops.InodeID]*inode
@@ -60,27 +54,6 @@ func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logge
 	fs.inodes[fuseops.RootInodeID] = newInode(fuseops.RootInodeID, mountpoint, root, rootAttrs)
 
 	return fuseutil.NewFileSystemServer(fs)
-}
-
-func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
-	fs.log.Trace("FUSE.getInodeOrDie", map[string]interface{}{
-		"id": id,
-	})
-
-	for _, inode := range fs.inodes {
-		fs.log.Trace("FUSE.getInodeOrDieInode", map[string]interface{}{
-			"id":   inode.id,
-			"name": inode.name,
-			"path": inode.path,
-		})
-	}
-
-	inode := fs.inodes[id]
-	if inode == nil {
-		panic(fmt.Sprintf("Unknown inode: %v", id))
-	}
-
-	return inode
 }
 
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
@@ -276,7 +249,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
 
-	fs.getInodeOrDie(op.Parent).AddChild(hash(newPath), op.Name, fuseutil.DT_Directory)
+	fs.getInodeOrDie(op.Parent).addChild(hash(newPath), op.Name, fuseutil.DT_Directory)
 
 	op.Entry.Child = hash(newPath)
 	op.Entry.Attributes = attrs
@@ -396,7 +369,6 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		panic(err)
 	}
 
-	// Set permissions of file to op.Mode
 	err = fs.backend.Chmod(newPath, op.Mode)
 	if err != nil {
 		panic(err)
@@ -417,7 +389,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
 
-	fs.getInodeOrDie(op.Parent).AddChild(hash(newPath), op.Name, fuseutil.DT_File)
+	fs.getInodeOrDie(op.Parent).addChild(hash(newPath), op.Name, fuseutil.DT_File)
 
 	var entry fuseops.ChildInodeEntry
 
@@ -454,18 +426,17 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	newParent := fs.getInodeOrDie(op.NewParent)
 	newPath := concatPath(newParent.path, op.NewName)
 
-	// FIXME: this fails when deleting a file (Unique constraint failed)
 	err := fs.backend.Rename(oldPath, newPath)
 	if err != nil {
 		panic(err)
 	}
 
-	childID, childType, ok := oldParent.LookUpChild(op.OldName)
+	childID, childType, ok := oldParent.lookUpChild(op.OldName)
 	if !ok {
 		return fuse.ENOENT
 	}
 
-	existingID, _, ok := newParent.LookUpChild(op.NewName)
+	existingID, _, ok := newParent.lookUpChild(op.NewName)
 	if ok {
 		existing := fs.getInodeOrDie(existingID)
 
@@ -490,7 +461,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 			}
 		}
 
-		newParent.RemoveChild(op.NewName)
+		newParent.removeChild(op.NewName)
 	}
 
 	inode := fs.getInodeOrDie(childID)
@@ -498,8 +469,8 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	inode.path = newPath
 	inode.name = op.NewName
 
-	newParent.AddChild(childID, op.NewName, childType)
-	oldParent.RemoveChild(op.OldName)
+	newParent.addChild(childID, op.NewName, childType)
+	oldParent.removeChild(op.OldName)
 
 	return nil
 }
@@ -522,7 +493,7 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 
 	fs.backend.Remove(op.Name)
 
-	childID, _, ok := parent.LookUpChild(op.Name)
+	childID, _, ok := parent.lookUpChild(op.Name)
 	if !ok {
 		return fuse.ENOENT
 	}
@@ -543,7 +514,7 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 		return fuse.ENOTEMPTY
 	}
 
-	parent.RemoveChild(op.Name)
+	parent.removeChild(op.Name)
 
 	child.attrs.Nlink--
 
@@ -582,10 +553,9 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fs.log.Debug("FUSE.ReadDir", map[string]interface{}{
-		"inode":  op.Inode,
-		"handle": op.Handle,
-		"offset": op.Offset,
-		// "dst":       op.Dst,
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -617,8 +587,6 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	for i := int(op.Offset); i < len(children); i++ {
 		var typ fuseutil.DirentType
 
-		// This limits the DirentType to only directories and files.
-		// If additional types are needed, consider adding a type field to the inode.
 		if children[i].IsDir() {
 			typ = fuseutil.DT_Directory
 		} else {
@@ -679,10 +647,9 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
 	fs.log.Debug("FUSE.ReadFile", map[string]interface{}{
-		"inode":  op.Inode,
-		"handle": op.Handle,
-		"offset": op.Offset,
-		// "dst":       op.Dst,
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -709,13 +676,11 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	return err
 }
 
-// FIXME: Can't write big files
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fs.log.Debug("FUSE.WriteFile", map[string]interface{}{
-		"inode":  op.Inode,
-		"handle": op.Handle,
-		"offset": op.Offset,
-		// "data":      op.Data,
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"offset":    op.Offset,
 		"opContext": op.OpContext,
 	})
 
@@ -784,7 +749,7 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	_, _, exists := parent.LookUpChild(op.Name)
+	_, _, exists := parent.lookUpChild(op.Name)
 	if exists {
 		return fuse.EEXIST
 	}
@@ -795,7 +760,7 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 	target.attrs.Nlink++
 	target.attrs.Ctime = now
 
-	parent.AddChild(op.Target, op.Name, fuseutil.DT_File)
+	parent.addChild(op.Target, op.Name, fuseutil.DT_File)
 
 	op.Entry.Child = op.Target
 	op.Entry.Attributes = target.attrs
@@ -826,9 +791,8 @@ func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp
 
 func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
 	fs.log.Debug("FUSE.GetXattr", map[string]interface{}{
-		"inode": op.Inode,
-		"name":  op.Name,
-		// "dst":       op.Dst,
+		"inode":     op.Inode,
+		"name":      op.Name,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -838,8 +802,7 @@ func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) erro
 
 func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
 	fs.log.Debug("FUSE.ListXattr", map[string]interface{}{
-		"inode": op.Inode,
-		// "dst":       op.Dst,
+		"inode":     op.Inode,
 		"bytesRead": op.BytesRead,
 		"opContext": op.OpContext,
 	})
@@ -887,8 +850,6 @@ func (fs *fileSystem) buildIndex(root string) error {
 		"root": root,
 	})
 
-	// Open all files and Stat to create the nodes
-
 	file, err := fs.backend.Open(root)
 	if err != nil {
 		panic(err)
@@ -899,7 +860,6 @@ func (fs *fileSystem) buildIndex(root string) error {
 		panic(err)
 	}
 
-	// Write current root to map
 	attrs := fuseops.InodeAttributes{
 		Size:   uint64(info.Size()),
 		Mode:   info.Mode(),
@@ -907,8 +867,8 @@ func (fs *fileSystem) buildIndex(root string) error {
 		Mtime:  info.ModTime(),
 		Ctime:  info.ModTime(),
 		Crtime: info.ModTime(),
-		Uid:    helpers.CurrentUid(),
-		Gid:    helpers.CurrentGid(),
+		Uid:    posix.CurrentUid(),
+		Gid:    posix.CurrentGid(),
 	}
 
 	fs.inodes[hash(root)] = newInode(hash(root), info.Name(), root, attrs)
@@ -921,22 +881,36 @@ func (fs *fileSystem) buildIndex(root string) error {
 
 		for _, child := range children {
 			if child.IsDir() {
-				fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_Directory)
-				fs.buildIndex(concatPath(root, child.Name()))
+				fs.getInodeOrDie(hash(root)).addChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_Directory)
 			} else {
-				fs.getInodeOrDie(hash(root)).AddChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_File)
-				fs.buildIndex(concatPath(root, child.Name()))
+				fs.getInodeOrDie(hash(root)).addChild(hash(concatPath(root, child.Name())), child.Name(), fuseutil.DT_File)
 			}
+			fs.buildIndex(concatPath(root, child.Name()))
 		}
 	}
 
 	return nil
 }
 
-func hash(s string) fuseops.InodeID {
-	h := fnv.New32a()
-	h.Write([]byte(s))
-	return fuseops.InodeID(h.Sum32())
+func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
+	fs.log.Trace("FUSE.getInodeOrDie", map[string]interface{}{
+		"id": id,
+	})
+
+	for _, inode := range fs.inodes {
+		fs.log.Trace("FUSE.getInodeOrDieInode", map[string]interface{}{
+			"id":   inode.id,
+			"name": inode.name,
+			"path": inode.path,
+		})
+	}
+
+	inode := fs.inodes[id]
+	if inode == nil {
+		panic(fmt.Sprintf("Unknown inode: %v", id))
+	}
+
+	return inode
 }
 
 func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
@@ -953,7 +927,6 @@ func (fs *fileSystem) getFullyQualifiedPath(id fuseops.InodeID) string {
 	return path
 }
 
-// Sanitize path by removing leading slashes.
 func sanitize(path string) string {
 	if len(path) > 0 {
 		if path[0] == '/' && path[1] == '/' {
@@ -963,7 +936,12 @@ func sanitize(path string) string {
 	return path
 }
 
-// Returns the concatenated path sanitized
 func concatPath(parentPath string, childName string) string {
 	return sanitize(parentPath + "/" + childName)
+}
+
+func hash(s string) fuseops.InodeID {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return fuseops.InodeID(h.Sum32())
 }

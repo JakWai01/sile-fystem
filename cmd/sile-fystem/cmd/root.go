@@ -40,7 +40,7 @@ func Execute() error {
 	}
 
 	mountPath := filepath.Join(homeDir, filepath.Join("Documents", "mount"))
-	// call mkdirall when mountPath is used
+
 	os.MkdirAll(mountPath, os.ModePerm)
 
 	rootCmd.PersistentFlags().String(mountpoint, mountPath, "Mountpoint")

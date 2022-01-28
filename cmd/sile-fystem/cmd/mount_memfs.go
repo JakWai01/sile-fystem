@@ -7,7 +7,7 @@ import (
 
 	"github.com/JakWai01/sile-fystem/internal/logging"
 	"github.com/JakWai01/sile-fystem/pkg/filesystem"
-	"github.com/JakWai01/sile-fystem/pkg/helpers"
+	"github.com/JakWai01/sile-fystem/pkg/posix"
 	"github.com/jacobsa/fuse"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -22,7 +22,7 @@ var memFsCmd = &cobra.Command{
 
 		os.MkdirAll(viper.GetString(mountpoint), os.ModePerm)
 
-		serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), viper.GetString(mountpoint), "", logger, afero.NewMemMapFs())
+		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), "", logger, afero.NewMemMapFs())
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
