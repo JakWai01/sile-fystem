@@ -56,6 +56,8 @@ func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logge
 	return fuseutil.NewFileSystemServer(fs)
 }
 
+// Look up a child by name within a parent directory.
+// The kernel sends this when resolving user paths to dentry structs, which are then cached.
 func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp) error {
 	fs.log.Debug("FUSE.LookUpInode", map[string]interface{}{
 		"parent":    op.Parent,
@@ -99,6 +101,9 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 	return nil
 }
 
+// Refresh the attributes for an inode whose ID was previously returned in a LookUpInodeOp.
+// The kernel sends this when the FUSE VFS layer's cache of inode attributes is stale.
+// This is controlled by the AttributesExpiration field of ChildInodeEntry, etc.
 func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetInodeAttributesOp) error {
 	fs.log.Debug("FUSE.GetInodeAttributes", map[string]interface{}{
 		"inode":                op.Inode,
@@ -144,6 +149,8 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	return nil
 }
 
+// Change attributes for an inode.
+// The kernel sends this for obvious cases like chmod(2), and for less obvious cases like ftrunctate(2).
 func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetInodeAttributesOp) error {
 	fs.log.Debug("FUSE.SetInodeAttributes", map[string]interface{}{
 		"inode":                op.Inode,
@@ -199,6 +206,8 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	return err
 }
 
+// Create a directory inode as a child of an existing directory inode.
+// The kernel sends this in response to a mkdir(2) call.
 func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	fs.log.Debug("FUSE.MkDir", map[string]interface{}{
 		"parent":    op.Parent,
@@ -259,6 +268,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	return nil
 }
 
+// Create a file inode as a child of an existing directory inode. The kernel sends this in response to a mknod(2) call.
 func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	fs.log.Debug("FUSE.MkNode", map[string]interface{}{
 		"parent":    op.Parent,
@@ -327,6 +337,9 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	return nil
 }
 
+// Create a file inode and open it.
+// The kernel sends this when the user asks to open a file with the O_CREAT flag and the kernel
+// has observed that the file doesn't exist.
 func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) (err error) {
 	fs.log.Debug("FUSE.CreateFile", map[string]interface{}{
 		"parent":    op.Parent,
@@ -404,6 +417,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	return nil
 }
 
+// Rename a file or directory, given the IDs of the original parent directory and the new one (which may be the same).
 func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	fs.log.Debug("FUSE.Rename", map[string]interface{}{
 		"oldParent": op.OldParent,
@@ -475,6 +489,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	return nil
 }
 
+// Unlink a directory from its parent.
 func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	fs.log.Debug("FUSE.RmDir", map[string]interface{}{
 		"parent":    op.Parent,
@@ -521,6 +536,9 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	return nil
 }
 
+// Open a directory inode.
+// On Linux the kernel sends this when setting up a struct file for a particular inode with type directory,
+// usually in response to an open(2) call from a user-space process. On OS X it may not be sent for every open(2)
 func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error {
 	fs.log.Debug("FUSE.OpenDir", map[string]interface{}{
 		"inode":     op.Inode,
@@ -551,6 +569,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	return nil
 }
 
+// Read entries from a directory previously opened with OpenDir.
 func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error {
 	fs.log.Debug("FUSE.ReadDir", map[string]interface{}{
 		"inode":     op.Inode,
@@ -613,6 +632,9 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	return nil
 }
 
+// Open a file inode.
+// On Linux the kernel sends this when setting up a struct file for a particular inode with type file,
+// usually in response to an open(2) call from a user-space process. On OS X it may not be sent for every open(2)
 func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) error {
 	fs.log.Debug("FUSE.OpenFile", map[string]interface{}{
 		"inode":         op.Inode,
@@ -645,6 +667,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 	return nil
 }
 
+// Read data from a file previously opened with CreateFile or OpenFile.
 func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) error {
 	fs.log.Debug("FUSE.ReadFile", map[string]interface{}{
 		"inode":     op.Inode,
@@ -676,6 +699,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	return err
 }
 
+// Write data to a file previously opened with CreateFile or OpenFile.
 func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) error {
 	fs.log.Debug("FUSE.WriteFile", map[string]interface{}{
 		"inode":     op.Inode,
@@ -705,32 +729,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	return nil
 }
 
-func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
-	fs.log.Debug("FUSE.FlushFile", map[string]interface{}{
-		"inode":     op.Inode,
-		"handle":    op.Handle,
-		"opContext": op.OpContext,
-	})
-
-	if op.OpContext.Pid == 0 {
-		return fuse.EINVAL
-	}
-
-	return nil
-}
-
-func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
-	fs.log.Debug("FUSE.CreateSymlink", map[string]interface{}{
-		"parent":    op.Parent,
-		"name":      op.Name,
-		"target":    op.Target,
-		"entry":     op.Entry,
-		"opContext": op.OpContext,
-	})
-
-	return nil
-}
-
+// Create a hard link to an inode
 func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) error {
 	fs.log.Debug("FUSE.CreateLink", map[string]interface{}{
 		"parent":    op.Parent,
@@ -769,6 +768,36 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 
 	return nil
 }
+
+// Write data to a file previously opened with CreateFile or OpenFile.
+func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (err error) {
+	fs.log.Debug("FUSE.FlushFile", map[string]interface{}{
+		"inode":     op.Inode,
+		"handle":    op.Handle,
+		"opContext": op.OpContext,
+	})
+
+	if op.OpContext.Pid == 0 {
+		return fuse.EINVAL
+	}
+
+	return nil
+}
+
+// Create a symlink inode.
+func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymlinkOp) error {
+	fs.log.Debug("FUSE.CreateSymlink", map[string]interface{}{
+		"parent":    op.Parent,
+		"name":      op.Name,
+		"target":    op.Target,
+		"entry":     op.Entry,
+		"opContext": op.OpContext,
+	})
+
+	return nil
+}
+
+// Unlink a file or symlink from its parent
 func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 	fs.log.Debug("FUSE.Unlink", map[string]interface{}{
 		"parent":    op.Parent,
@@ -779,6 +808,7 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 	return nil
 }
 
+// Read the target of a symlink inode.
 func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp) error {
 	fs.log.Debug("FUSE.ReadSymlink", map[string]interface{}{
 		"inode":     op.Inode,
@@ -789,6 +819,7 @@ func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp
 	return nil
 }
 
+// Get an extended attribute.
 func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) error {
 	fs.log.Debug("FUSE.GetXattr", map[string]interface{}{
 		"inode":     op.Inode,
@@ -800,6 +831,7 @@ func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) erro
 	return nil
 }
 
+// List all the extended attributes for a file.
 func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) error {
 	fs.log.Debug("FUSE.ListXattr", map[string]interface{}{
 		"inode":     op.Inode,
@@ -810,6 +842,7 @@ func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) er
 	return nil
 }
 
+// Remove an extended attribute.
 func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp) error {
 	fs.log.Debug("FUSE.RemoveXattr", map[string]interface{}{
 		"inode":     op.Inode,
@@ -820,6 +853,7 @@ func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp
 	return nil
 }
 
+// Set an extended attribute.
 func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) error {
 	fs.log.Debug("FUSE.SetXattr", map[string]interface{}{
 		"inode":     op.Inode,
