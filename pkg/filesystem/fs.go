@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
-	"github.com/jacobsa/syncutil"
 	"github.com/spf13/afero"
 )
 
@@ -24,7 +24,7 @@ type fileSystem struct {
 	backend afero.Fs
 	fuseutil.NotImplementedFileSystem
 
-	mu syncutil.InvariantMutex
+	mu sync.Mutex
 
 	uid uint32
 	gid uint32
@@ -66,12 +66,16 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		"OpContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	parent := fs.getInodeOrDie(op.Parent)
 
 	file, err := fs.backend.Open(parent.path)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	children, err := file.Readdir(-1)
 	if err != nil {
@@ -230,6 +234,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	children, err := file.Readdir(-1)
 	if err != nil {
@@ -291,6 +296,7 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	children, err := file.Readdir(-1)
 	if err != nil {
@@ -363,6 +369,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	children, err := file.Readdir(-1)
 	if err != nil {
@@ -476,6 +483,10 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 		}
 
 		newParent.removeChild(op.NewName)
+
+		if err := file.Close(); err != nil {
+			panic(err)
+		}
 	}
 
 	inode := fs.getInodeOrDie(childID)
@@ -519,6 +530,7 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
@@ -550,12 +562,16 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		return fuse.EINVAL
 	}
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	inode := fs.getInodeOrDie(op.Inode)
 
 	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
@@ -592,6 +608,7 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	children, err := file.Readdir(-1)
 	if err != nil {
@@ -648,12 +665,16 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		return fuse.EINVAL
 	}
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	inode := fs.getInodeOrDie(op.Inode)
 
 	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
@@ -690,6 +711,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	op.BytesRead, err = file.ReadAt(op.Dst, op.Offset)
 	if err == io.EOF {
@@ -706,6 +728,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 		"handle":    op.Handle,
 		"offset":    op.Offset,
 		"opContext": op.OpContext,
+		"data":      len(op.Data),
 	})
 
 	fs.mu.Lock()
@@ -777,6 +800,9 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -794,6 +820,9 @@ func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymli
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -805,6 +834,9 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -815,6 +847,9 @@ func (fs *fileSystem) ReadSymlink(ctx context.Context, op *fuseops.ReadSymlinkOp
 		"target":    op.Target,
 		"opContext": op.OpContext,
 	})
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 
 	return nil
 }
@@ -828,6 +863,9 @@ func (fs *fileSystem) GetXattr(ctx context.Context, op *fuseops.GetXattrOp) erro
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -839,6 +877,9 @@ func (fs *fileSystem) ListXattr(ctx context.Context, op *fuseops.ListXattrOp) er
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -849,6 +890,9 @@ func (fs *fileSystem) RemoveXattr(ctx context.Context, op *fuseops.RemoveXattrOp
 		"name":      op.Name,
 		"opContext": op.OpContext,
 	})
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 
 	return nil
 }
@@ -863,6 +907,9 @@ func (fs *fileSystem) SetXattr(ctx context.Context, op *fuseops.SetXattrOp) erro
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -876,6 +923,9 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 		"opContext": op.OpContext,
 	})
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -888,6 +938,7 @@ func (fs *fileSystem) buildIndex(root string) error {
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
