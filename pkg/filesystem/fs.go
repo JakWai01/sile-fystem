@@ -463,7 +463,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 
 		file, err := fs.backend.Open(existing.path)
 		if err != nil {
-			panic(err)
+			return fuse.EEXIST
 		}
 
 		info, err := file.Stat()
@@ -672,7 +672,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 	file, err := fs.backend.Open(inode.path)
 	if err != nil {
-		panic(err)
+		return fuse.EEXIST
 	}
 	defer file.Close()
 
