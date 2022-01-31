@@ -3,6 +3,7 @@ package filesystem
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/jacobsa/fuse/fuseops"
@@ -15,6 +16,7 @@ type inode struct {
 	path    string
 	attrs   fuseops.InodeAttributes
 	entries []fuseutil.Dirent
+	mu      sync.Mutex
 }
 
 func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeAttributes) *inode {
@@ -32,14 +34,6 @@ func newInode(id fuseops.InodeID, name string, path string, attrs fuseops.InodeA
 
 func (in *inode) isDir() bool {
 	return in.attrs.Mode&os.ModeDir != 0
-}
-
-func (in *inode) isSymlink() bool {
-	return in.attrs.Mode&os.ModeSymlink != 0
-}
-
-func (in *inode) isFile() bool {
-	return !(in.isDir() || in.isSymlink())
 }
 
 func (in *inode) addChild(id fuseops.InodeID, name string, dt fuseutil.DirentType) {
@@ -69,6 +63,9 @@ func (in *inode) addChild(id fuseops.InodeID, name string, dt fuseutil.DirentTyp
 }
 
 func (in *inode) removeChild(name string) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
 	in.attrs.Mtime = time.Now()
 
 	i, ok := in.findChild(name)
@@ -83,6 +80,9 @@ func (in *inode) removeChild(name string) {
 }
 
 func (in *inode) lookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {
+	in.mu.Lock()
+	defer in.mu.Unlock()
+
 	index, ok := in.findChild(name)
 	if ok {
 		id = in.entries[index].Inode
