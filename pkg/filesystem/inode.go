@@ -1,7 +1,6 @@
 package filesystem
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -68,15 +67,26 @@ func (in *inode) removeChild(name string) {
 
 	in.attrs.Mtime = time.Now()
 
-	i, ok := in.findChild(name)
-	if !ok {
-		panic(fmt.Sprintf("Unknown child: %s", name))
+	// i, ok := in.findChild(name)
+	// if !ok {
+	// 	panic(fmt.Sprintf("Unknown child: %s", name))
+	// }
+
+	// in.entries[i] = fuseutil.Dirent{
+	// 	Type:   fuseutil.DT_Unknown,
+	// 	Offset: fuseops.DirOffset(i + 1),
+	// }
+	newEntries := make([]fuseutil.Dirent, 0)
+
+	for _, child := range in.entries {
+		if child.Name != name {
+			newEntries = append(newEntries, child)
+		} else {
+			continue
+		}
 	}
 
-	in.entries[i] = fuseutil.Dirent{
-		Type:   fuseutil.DT_Unknown,
-		Offset: fuseops.DirOffset(i + 1),
-	}
+	in.entries = newEntries
 }
 
 func (in *inode) lookUpChild(name string) (id fuseops.InodeID, typ fuseutil.DirentType, ok bool) {

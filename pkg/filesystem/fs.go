@@ -69,36 +69,49 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(parent.path)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// file, err := fs.backend.Open(parent.path)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
+	// children, err := file.Readdir(-1)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	childId, _, ok := parent.lookUpChild(op.Name)
+	if !ok {
+		return fuse.ENOENT
 	}
 
-	for _, child := range children {
-		if child.Name() == op.Name {
-			op.Entry.Child = hash(concatPath(parent.path, child.Name()))
-			op.Entry.Attributes = fuseops.InodeAttributes{
-				Size:   uint64(child.Size()),
-				Nlink:  1,
-				Mode:   child.Mode(),
-				Atime:  child.ModTime(),
-				Mtime:  child.ModTime(),
-				Ctime:  child.ModTime(),
-				Crtime: child.ModTime(),
-				Uid:    fs.uid,
-				Gid:    fs.gid,
-			}
+	child := fs.getInodeOrDie(childId)
 
-			op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
-			op.Entry.EntryExpiration = op.Entry.AttributesExpiration
-		}
-	}
+	op.Entry.Child = childId
+	op.Entry.Attributes = child.attrs
+	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
+
+	// for _, child := range parent.entries {
+
+	// 	if child.Name == op.Name {
+	// 		op.Entry.Child = hash(concatPath(parent.path, child.Name))
+	// 		op.Entry.Attributes = fuseops.InodeAttributes{
+	// 			// FIXME
+	// 			// Size:   uint64(child.Size()),
+	// 			Nlink: 1,
+	// 			// FIXME: Add Mode to inode
+	// 			// Mode:   child.Mode(),
+	// 			// Atime:  child.ModTime(),
+	// 			// Mtime:  child.ModTime(),
+	// 			// Ctime:  child.ModTime(),
+	// 			// Crtime: child.ModTime(),
+	// 			Uid: fs.uid,
+	// 			Gid: fs.gid,
+	// 		}
+
+	// 	}
+	// }
 
 	return nil
 }
@@ -120,28 +133,28 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(inode.path)
-	if err != nil {
-		panic(err)
-	}
+	// file, err := fs.backend.Open(inode.path)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	defer file.Close()
+	// defer file.Close()
 
-	info, err := file.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	op.Attributes = fuseops.InodeAttributes{
-		Size:   uint64(info.Size()),
-		Mode:   info.Mode(),
-		Atime:  info.ModTime(),
-		Mtime:  info.ModTime(),
-		Ctime:  info.ModTime(),
-		Crtime: info.ModTime(),
-		Uid:    fs.uid,
-		Gid:    fs.gid,
-	}
+	// info, err := file.Stat()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	op.Attributes = inode.attrs
+	// op.Attributes = fuseops.InodeAttributes{
+	// 	// Size:   uint64(info.Size()),
+	// 	// Mode:   info.Mode(),
+	// 	// Atime:  info.ModTime(),
+	// 	// Mtime:  info.ModTime(),
+	// 	// Ctime:  info.ModTime(),
+	// 	// Crtime: info.ModTime(),
+	// 	Uid: fs.uid,
+	// 	Gid: fs.gid,
+	// }
 
 	op.AttributesExpiration = time.Now().Add(356 * 24 * time.Hour)
 
@@ -172,6 +185,11 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 		// require that truncate to non-zero has to be ftruncate()
 		// but allow open(O_TRUNC)
 		err = syscall.EBADF
+	}
+
+	if fs.inodes[op.Inode] == nil {
+		fmt.Println("Not inside")
+		return fuse.EEXIST
 	}
 
 	inode := fs.getInodeOrDie(op.Inode)
@@ -219,26 +237,30 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(parent.path)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// file, err := fs.backend.Open(parent.path)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
+	// children, err := file.Readdir(-1)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	for _, child := range children {
-		if child.Name() == op.Name {
-			return fuse.EEXIST
-		}
+	// for _, child := range children {
+	// 	if child.Name() == op.Name {
+	// 		return fuse.EEXIST
+	// 	}
+	// }
+	_, _, ok := parent.lookUpChild(op.Name)
+	if ok {
+		return fuse.EEXIST
 	}
 
 	newPath := concatPath(parent.path, op.Name)
 
-	err = fs.backend.Mkdir(newPath, op.Mode)
+	err := fs.backend.Mkdir(newPath, op.Mode)
 	if err != nil {
 		panic(err)
 	}
@@ -251,7 +273,6 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	}
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
-
 	fs.getInodeOrDie(op.Parent).addChild(hash(newPath), op.Name, fuseutil.DT_Directory)
 
 	op.Entry.Child = hash(newPath)
@@ -278,26 +299,30 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(parent.path)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// file, err := fs.backend.Open(parent.path)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
+	// children, err := file.Readdir(-1)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	for _, child := range children {
-		if child.Name() == op.Name {
-			return fuse.EEXIST
-		}
+	// for _, child := range children {
+	// 	if child.Name() == op.Name {
+	// 		return fuse.EEXIST
+	// 	}
+	// }
+	_, _, ok := parent.lookUpChild(op.Name)
+	if ok {
+		return fuse.EEXIST
 	}
 
 	newPath := concatPath(parent.path, op.Name)
 
-	_, err = fs.backend.Create(newPath)
+	_, err := fs.backend.Create(newPath)
 	if err != nil {
 		panic(err)
 	}
@@ -315,6 +340,7 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	}
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
+	parent.addChild(hash(newPath), op.Name, fuseutil.DT_File)
 
 	var entry fuseops.ChildInodeEntry
 
@@ -349,21 +375,25 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	fs.mu.Lock()
 	parent := fs.getInodeOrDie(op.Parent)
 
-	file, err := fs.backend.Open(parent.path)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// file, err := fs.backend.Open(parent.path)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
+	// children, err := file.Readdir(-1)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	for _, child := range children {
-		if child.Name() == op.Name {
-			return fuse.EEXIST
-		}
+	// for _, child := range children {
+	// 	if child.Name() == op.Name {
+	// 		return fuse.EEXIST
+	// 	}
+	// }
+	_, _, ok := parent.lookUpChild(op.Name)
+	if ok {
+		return fuse.EEXIST
 	}
 
 	newPath := concatPath(parent.path, op.Name)
@@ -394,7 +424,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	}
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
-
+	log.Println(op.Parent)
 	fs.getInodeOrDie(op.Parent).addChild(hash(newPath), op.Name, fuseutil.DT_File)
 
 	var entry fuseops.ChildInodeEntry
@@ -444,32 +474,35 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 	if ok {
 		existing := fs.getInodeOrDie(existingID)
 
-		file, err := fs.backend.Open(existing.path)
-		if err != nil {
-			return fuse.ENOENT
+		if len(existing.entries) > 0 {
+			return fuse.ENOTEMPTY
 		}
 
-		info, err := file.Stat()
-		if err != nil {
-			panic(err)
-		}
+		// file, err := fs.backend.Open(existing.path)
+		// if err != nil {
+		// 	return fuse.ENOENT
+		// }
 
-		if info.IsDir() {
-			children, err := file.Readdir(-1)
-			if err != nil {
-				panic(err)
-			}
+		// info, err := file.Stat()
+		// if err != nil {
+		// 	panic(err)
+		// }
 
-			if len(children) > 0 {
-				return fuse.ENOTEMPTY
-			}
-		}
+		// if info.IsDir() {
+		// 	children, err := file.Readdir(-1)
+		// 	if err != nil {
+		// 		panic(err)
+		// 	}
+
+		// 	if len(children) > 0 {
+		// 		return fuse.ENOTEMPTY
+		// 	}
+		// }
 
 		newParent.removeChild(op.NewName)
-
-		if err := file.Close(); err != nil {
-			panic(err)
-		}
+		// if err := file.Close(); err != nil {
+		// 	panic(err)
+		// }
 	}
 
 	inode := fs.getInodeOrDie(childID)
@@ -508,22 +541,26 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 
 	child := fs.getInodeOrDie(childID)
 
-	file, err := fs.backend.Open(op.Name)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// file, err := fs.backend.Open(op.Name)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	info, err := file.Stat()
-	if err != nil {
-		panic(err)
-	}
+	// info, err := file.Stat()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	if info.Size() != 0 {
+	// if info.Size() != 0 {
+	// 	return fuse.ENOTEMPTY
+	// }
+	if len(child.entries) > 0 {
 		return fuse.ENOTEMPTY
 	}
 
 	parent.removeChild(op.Name)
+	delete(fs.inodes, childID)
 
 	child.attrs.Nlink--
 
@@ -581,36 +618,35 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	file, err := fs.backend.Open(inode.path)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
+	// FIXME
+	// file, err := fs.backend.Open(inode.path)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
 
-	children, err := file.Readdir(-1)
-	if err != nil {
-		panic(err)
-	}
+	// children, err := file.Readdir(-1)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	if !inode.isDir() {
 		panic("ReadDir called on  non-directory.")
 	}
 
 	var n int
-	for i := int(op.Offset); i < len(children); i++ {
-		var typ fuseutil.DirentType
-
-		if children[i].IsDir() {
-			typ = fuseutil.DT_Directory
-		} else {
-			typ = fuseutil.DT_File
-		}
-
+	for i := int(op.Offset); i < len(inode.entries); i++ {
+		log.Println(inode.entries[i].Name)
+		// if children[i].IsDir() {
+		// 	typ = fuseutil.DT_Directory
+		// } else {
+		// 	typ = fuseutil.DT_File
+		// }
 		entry := fuseutil.Dirent{
 			Offset: fuseops.DirOffset(i + 1),
-			Inode:  hash(concatPath(inode.path, children[i].Name())),
-			Name:   children[i].Name(),
-			Type:   typ,
+			Inode:  hash(concatPath(inode.path, inode.entries[i].Name)),
+			Name:   inode.entries[i].Name,
+			Type:   inode.entries[i].Type,
 		}
 
 		tmp := fuseutil.WriteDirent(op.Dst[n:], entry)
@@ -646,6 +682,7 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 	inode := fs.getInodeOrDie(op.Inode)
 
+	// FIXME
 	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		return fuse.EEXIST
@@ -680,6 +717,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 
 	inode := fs.getInodeOrDie(op.Inode)
 
+	// FIXME
 	file, err := fs.backend.Open(inode.path)
 	if err != nil {
 		panic(err)
@@ -706,6 +744,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 
 	inode := fs.getInodeOrDie(op.Inode)
 
+	// FIXME
 	file, err := fs.backend.OpenFile(inode.path, os.O_WRONLY, inode.attrs.Mode)
 	if err != nil {
 		panic(err)
@@ -800,6 +839,10 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 	id, _, _ := parent.lookUpChild(op.Name)
 
 	child := fs.getInodeOrDie(id)
+
+	parent.removeChild(child.name)
+	delete(fs.inodes, id)
+	fmt.Println(id)
 
 	return fs.backend.Remove(child.path)
 }
@@ -961,11 +1004,11 @@ func (fs *fileSystem) getInodeOrDie(id fuseops.InodeID) *inode {
 }
 
 func sanitize(path string) string {
-	// if len(path) > 0 {
-	// 	if path[0] == '/' && path[1] == '/' {
-	// 		return path[1:]
-	// 	}
-	// }
+	if len(path) > 0 {
+		if path[0] == '/' && path[1] == '/' {
+			return path[1:]
+		}
+	}
 	return path
 }
 
