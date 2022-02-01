@@ -454,8 +454,8 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		panic(err)
 	}
 
-	// fs.op.Lock()
-	// defer fs.op.Unlock()
+	fs.op.Lock()
+	defer fs.op.Unlock()
 
 	fs.opened = file
 
@@ -541,8 +541,8 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		return fuse.EEXIST
 	}
 
-	// fs.op.Lock()
-	// defer fs.op.Lock()
+	fs.op.Lock()
+	defer fs.op.Unlock()
 
 	fs.opened = file
 
@@ -574,8 +574,9 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 		return fuse.EINVAL
 	}
 
-	// fs.op.Lock()
-	// defer fs.op.Lock()
+	fs.op.Lock()
+	defer fs.op.Unlock()
+
 	op.BytesRead, err = fs.opened.ReadAt(op.Dst, op.Offset)
 	if err == io.EOF {
 		return nil
@@ -598,8 +599,9 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 
 	inode := fs.getInodeOrDie(op.Inode)
 
-	// fs.op.Lock()
-	// defer fs.op.Lock()
+	fs.op.Lock()
+	defer fs.op.Unlock()
+
 	_, err = fs.opened.WriteAt(op.Data, op.Offset)
 	if err != nil {
 		panic(err)
@@ -770,8 +772,9 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 func (fs *fileSystem) ReleaseFileHandle(ctx context.Context, op *fuseops.ReleaseFileHandleOp) error {
 	log.Println("Releasing file")
 
-	// fs.op.Lock()
-	// defer fs.op.Lock()
+	fs.op.Lock()
+	defer fs.op.Unlock()
+
 	if fs.opened != nil {
 		if err := fs.opened.Close(); err != nil {
 			panic(err)
@@ -786,8 +789,9 @@ func (fs *fileSystem) ReleaseFileHandle(ctx context.Context, op *fuseops.Release
 func (fs *fileSystem) ReleaseDirHandle(ctx context.Context, op *fuseops.ReleaseDirHandleOp) error {
 	log.Println("Releasing dir")
 
-	// fs.op.Lock()
-	// defer fs.op.Lock()
+	fs.op.Lock()
+	defer fs.op.Unlock()
+
 	if fs.opened != nil {
 		if err := fs.opened.Close(); err != nil {
 			panic(err)
