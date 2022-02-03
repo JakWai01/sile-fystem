@@ -28,7 +28,7 @@ var osFsCmd = &cobra.Command{
 		os.MkdirAll(viper.GetString(storageFlag), os.ModePerm)
 		os.MkdirAll(viper.GetString(mountpoint), os.ModePerm)
 
-		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), viper.GetString(storageFlag), logger, afero.NewOsFs())
+		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), viper.GetString(storageFlag), logger, afero.NewOsFs(), false)
 
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,

@@ -50,11 +50,11 @@ func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l 
 	}
 
 	if osfs {
-		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, t.TestDir, l, afero.NewOsFs())
+		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, t.TestDir, l, afero.NewOsFs(), false)
 	}
 
 	if !osfs {
-		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, "/", l, afero.NewMemMapFs())
+		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, "/", l, afero.NewMemMapFs(), false)
 	}
 
 	t.mfs, err = fuse.Mount(t.Dir, t.Server, config)

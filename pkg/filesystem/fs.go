@@ -36,7 +36,7 @@ type fileSystem struct {
 	opened afero.File
 }
 
-func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logger logging.StructuredLogger, backend afero.Fs) fuse.Server {
+func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logger logging.StructuredLogger, backend afero.Fs, sync bool) fuse.Server {
 	fs := &fileSystem{
 		inodes:  make(map[fuseops.InodeID]*inode),
 		root:    root,

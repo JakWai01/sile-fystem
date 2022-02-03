@@ -130,7 +130,7 @@ var mountCmd = &cobra.Command{
 			panic(err)
 		}
 
-		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), root, l, fs)
+		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), root, l, fs, true)
 		cfg := &fuse.MountConfig{
 			ReadOnly:                  false,
 			DisableDefaultPermissions: false,
