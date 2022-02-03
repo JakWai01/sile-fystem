@@ -34,6 +34,8 @@ type fileSystem struct {
 	log logging.StructuredLogger
 
 	opened afero.File
+
+	sync bool
 }
 
 func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logger logging.StructuredLogger, backend afero.Fs, sync bool) fuse.Server {
@@ -44,7 +46,8 @@ func NewFileSystem(uid uint32, gid uint32, mountpoint string, root string, logge
 		uid:     uid,
 		gid:     gid,
 
-		log: logger,
+		log:  logger,
+		sync: sync,
 	}
 
 	rootAttrs := fuseops.InodeAttributes{
@@ -102,6 +105,11 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 		return fuse.EINVAL
 	}
 
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
+
 	inode := fs.getInodeOrDie(op.Inode)
 
 	op.Attributes = inode.attrs
@@ -127,6 +135,11 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
+	}
+
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
 	}
 
 	var err error
@@ -184,6 +197,11 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 		return fuse.EINVAL
 	}
 
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
+
 	parent := fs.getInodeOrDie(op.Parent)
 
 	_, _, ok := parent.lookUpChild(op.Name)
@@ -231,6 +249,11 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 	}
 
 	parent := fs.getInodeOrDie(op.Parent)
+
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
 
 	_, _, ok := parent.lookUpChild(op.Name)
 	if ok {
@@ -289,7 +312,15 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 		return fuse.EINVAL
 	}
 
-	fs.mu.Lock()
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
+
+	if fs.sync {
+		fs.mu.Lock()
+	}
+
 	parent := fs.getInodeOrDie(op.Parent)
 
 	_, _, ok := parent.lookUpChild(op.Name)
@@ -355,6 +386,11 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 		return fuse.EINVAL
 	}
 
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
+
 	oldParent := fs.getInodeOrDie(op.OldParent)
 	oldPath := concatPath(oldParent.path, op.OldName)
 
@@ -405,6 +441,11 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 		return fuse.EINVAL
 	}
 
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
+
 	parent := fs.getInodeOrDie(op.Parent)
 
 	if err := fs.backend.Remove(op.Name); err != nil {
@@ -446,7 +487,10 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		return fuse.EINVAL
 	}
 
-	fs.mu.Lock()
+	if fs.sync {
+		fs.mu.Lock()
+	}
+
 	inode := fs.getInodeOrDie(op.Inode)
 
 	file, err := fs.backend.Open(inode.path)
@@ -483,6 +527,11 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
+	}
+
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
 	}
 
 	inode := fs.getInodeOrDie(op.Inode)
@@ -532,7 +581,9 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		return fuse.EINVAL
 	}
 
-	fs.mu.Lock()
+	if fs.sync {
+		fs.mu.Lock()
+	}
 
 	inode := fs.getInodeOrDie(op.Inode)
 
@@ -577,9 +628,24 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 	fs.op.Lock()
 	defer fs.op.Unlock()
 
-	op.BytesRead, err = fs.opened.ReadAt(op.Dst, op.Offset)
-	if err == io.EOF {
-		return nil
+	if !fs.sync {
+		inode := fs.getInodeOrDie(op.Inode)
+
+		file, err := fs.backend.Open(inode.path)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		op.BytesRead, err = file.ReadAt(op.Dst, op.Offset)
+		if err == io.EOF {
+			return nil
+		}
+	} else {
+		op.BytesRead, err = fs.opened.ReadAt(op.Dst, op.Offset)
+		if err == io.EOF {
+			return nil
+		}
 	}
 
 	return err
@@ -597,14 +663,32 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 
 	var err error
 
+	if !fs.sync {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+	}
+
 	inode := fs.getInodeOrDie(op.Inode)
 
 	fs.op.Lock()
 	defer fs.op.Unlock()
 
-	_, err = fs.opened.WriteAt(op.Data, op.Offset)
-	if err != nil {
-		panic(err)
+	if !fs.sync {
+		file, err := fs.backend.OpenFile(inode.path, os.O_WRONLY, inode.attrs.Mode)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		_, err = file.WriteAt(op.Data, op.Offset)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		_, err = fs.opened.WriteAt(op.Data, op.Offset)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	inode.attrs.Mtime = time.Now()
@@ -772,33 +856,38 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 func (fs *fileSystem) ReleaseFileHandle(ctx context.Context, op *fuseops.ReleaseFileHandleOp) error {
 	log.Println("Releasing file")
 
-	fs.op.Lock()
-	defer fs.op.Unlock()
+	if fs.sync {
+		fs.op.Lock()
+		defer fs.op.Unlock()
 
-	if fs.opened != nil {
-		if err := fs.opened.Close(); err != nil {
-			panic(err)
+		if fs.opened != nil {
+			if err := fs.opened.Close(); err != nil {
+				panic(err)
+			}
 		}
+		fs.opened = nil
+		fs.mu.Unlock()
 	}
-	fs.opened = nil
-	fs.mu.Unlock()
 
 	return nil
 }
 
 func (fs *fileSystem) ReleaseDirHandle(ctx context.Context, op *fuseops.ReleaseDirHandleOp) error {
 	log.Println("Releasing dir")
+	log.Println(fs.sync)
 
-	fs.op.Lock()
-	defer fs.op.Unlock()
+	if fs.sync {
+		fs.op.Lock()
+		defer fs.op.Unlock()
 
-	if fs.opened != nil {
-		if err := fs.opened.Close(); err != nil {
-			panic(err)
+		if fs.opened != nil {
+			if err := fs.opened.Close(); err != nil {
+				panic(err)
+			}
 		}
+		fs.opened = nil
+		fs.mu.Unlock()
 	}
-	fs.opened = nil
-	fs.mu.Unlock()
 
 	return nil
 }
