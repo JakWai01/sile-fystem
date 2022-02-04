@@ -31,14 +31,14 @@ This code is a reference to the `mount_memfs.go` command. It mounts the FUSE usi
 ```go
 logger := logging.NewJSONLogger(5)
 
-serve := filesystem.NewFileSystem(helpers.CurrentUid(), helpers.CurrentGid(), $YOUR_MOUNTPOINT$, "", logger, afero.NewMemMapFs())
+serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), "/path/to/mountpoint", "", logger, afero.NewMemMapFs(), false)
 
 cfg := &fuse.MountConfig{
   ReadOnly:                  false,
   DisableDefaultPermissions: false,
 }
 
-mfs, err := fuse.Mount($YOUR_MOUNTPOINT$, serve, cfg)
+mfs, err := fuse.Mount("/path/to/mountpoint", serve, cfg)
 if err != nil {
   log.Fatalf("Mount: %v", err)
 }
