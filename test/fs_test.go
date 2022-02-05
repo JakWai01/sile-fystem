@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	verbosity = flag.Int("verbosity", 2, "Verbosity of the logging output")
+	verbosity = flag.Int("verbosity", 5, "Verbosity of the logging output")
 )
 
 func TestFileSystemSetup(t *testing.T) {
