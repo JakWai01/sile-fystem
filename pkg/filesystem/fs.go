@@ -73,6 +73,9 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		"OpContext": op.OpContext,
 	})
 
+	// fs.mu.Lock()
+	// defer fs.mu.Unlock()
+
 	parent := fs.getInodeOrDie(op.Parent)
 
 	childId, _, ok := parent.lookUpChild(op.Name)
@@ -108,12 +111,39 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 	if !fs.sync {
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
+
+		inode := fs.getInodeOrDie(op.Inode)
+
+		file, err := fs.backend.Open(inode.path)
+		if err != nil {
+			panic(err)
+		}
+
+		defer file.Close()
+
+		info, err := file.Stat()
+		if err != nil {
+			panic(err)
+		}
+
+		op.Attributes = fuseops.InodeAttributes{
+			Size:   uint64(info.Size()),
+			Mode:   info.Mode(),
+			Atime:  info.ModTime(),
+			Mtime:  info.ModTime(),
+			Ctime:  info.ModTime(),
+			Crtime: info.ModTime(),
+			Uid:    fs.uid,
+			Gid:    fs.gid,
+		}
+
+		op.AttributesExpiration = time.Now().Add(356 * 24 * time.Hour)
+	} else {
+		inode := fs.getInodeOrDie(op.Inode)
+
+		op.Attributes = inode.attrs
+		op.AttributesExpiration = time.Now().Add(356 * 24 * time.Hour)
 	}
-
-	inode := fs.getInodeOrDie(op.Inode)
-
-	op.Attributes = inode.attrs
-	op.AttributesExpiration = time.Now().Add(356 * 24 * time.Hour)
 
 	return nil
 }
@@ -162,6 +192,7 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 			panic(err)
 		}
 		op.Attributes.Mode = *op.Mode
+		inode.attrs.Mode = *op.Mode
 	}
 
 	if op.Atime != nil && op.Mtime != nil {
@@ -171,10 +202,15 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 		}
 		op.Attributes.Atime = *op.Atime
 		op.Attributes.Mtime = *op.Mtime
+
+		inode.attrs.Atime = *op.Atime
+		inode.attrs.Mtime = *op.Mtime
 	}
 
 	if op.Size != nil {
 		op.Attributes.Size = *op.Size
+
+		inode.attrs.Size = *op.Size
 	}
 
 	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
@@ -224,6 +260,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 	}
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
+
 	fs.getInodeOrDie(op.Parent).addChild(hash(newPath), op.Name, fuseutil.DT_Directory)
 
 	op.Entry.Child = hash(newPath)
@@ -248,12 +285,12 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 		return fuse.EINVAL
 	}
 
-	parent := fs.getInodeOrDie(op.Parent)
-
 	if !fs.sync {
 		fs.mu.Lock()
 		defer fs.mu.Unlock()
 	}
+
+	parent := fs.getInodeOrDie(op.Parent)
 
 	_, _, ok := parent.lookUpChild(op.Name)
 	if ok {
@@ -332,8 +369,6 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 
 	fs.opened, err = fs.backend.Create(newPath)
 	if err != nil {
-		log.Println(newPath)
-
 		panic(err)
 	}
 
@@ -356,7 +391,7 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 	}
 
 	fs.inodes[hash(newPath)] = newInode(hash(newPath), op.Name, newPath, attrs)
-	log.Println(op.Parent)
+
 	fs.getInodeOrDie(op.Parent).addChild(hash(newPath), op.Name, fuseutil.DT_File)
 
 	var entry fuseops.ChildInodeEntry
@@ -481,6 +516,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		"opContext": op.OpContext,
 	})
 
+	var file afero.File
 	var err error
 
 	if op.OpContext.Pid == 0 {
@@ -488,28 +524,26 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 	}
 
 	if fs.sync {
+		inode := fs.getInodeOrDie(op.Inode)
 		fs.mu.Lock()
-	}
+		file, err = fs.backend.Open(inode.path)
+		if err != nil {
+			panic(err)
+		}
 
-	inode := fs.getInodeOrDie(op.Inode)
+		fs.op.Lock()
+		defer fs.op.Unlock()
 
-	file, err := fs.backend.Open(inode.path)
-	if err != nil {
-		panic(err)
-	}
+		fs.opened = file
 
-	fs.op.Lock()
-	defer fs.op.Unlock()
+		info, err := file.Stat()
+		if err != nil {
+			panic(err)
+		}
 
-	fs.opened = file
-
-	info, err := file.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	if !info.IsDir() {
-		panic("Found non-dir.")
+		if !info.IsDir() {
+			panic("Found non-dir.")
+		}
 	}
 
 	return nil
@@ -575,35 +609,32 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 		"opContext":     op.OpContext,
 	})
 
-	var err error
-
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
 
 	if fs.sync {
 		fs.mu.Lock()
-	}
+		inode := fs.getInodeOrDie(op.Inode)
 
-	inode := fs.getInodeOrDie(op.Inode)
+		file, err := fs.backend.OpenFile(inode.path, os.O_RDWR|os.O_APPEND, inode.attrs.Mode)
+		if err != nil {
+			return fuse.EEXIST
+		}
 
-	file, err := fs.backend.OpenFile(inode.path, os.O_RDWR|os.O_APPEND, inode.attrs.Mode)
-	if err != nil {
-		return fuse.EEXIST
-	}
+		fs.op.Lock()
+		defer fs.op.Unlock()
 
-	fs.op.Lock()
-	defer fs.op.Unlock()
+		fs.opened = file
 
-	fs.opened = file
+		info, err := file.Stat()
+		if err != nil {
+			panic(err)
+		}
 
-	info, err := file.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	if info.IsDir() {
-		panic("Found non-file.")
+		if info.IsDir() {
+			panic("Found non-file.")
+		}
 	}
 
 	return nil
@@ -661,13 +692,6 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 		"data":      len(op.Data),
 	})
 
-	var err error
-
-	if !fs.sync {
-		fs.mu.Lock()
-		defer fs.mu.Unlock()
-	}
-
 	inode := fs.getInodeOrDie(op.Inode)
 
 	fs.op.Lock()
@@ -685,7 +709,7 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 			panic(err)
 		}
 	} else {
-		_, err = fs.opened.WriteAt(op.Data, op.Offset)
+		_, err := fs.opened.WriteAt(op.Data, op.Offset)
 		if err != nil {
 			panic(err)
 		}
@@ -709,6 +733,9 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
+
+	// fs.mu.Lock()
+	// defer fs.mu.Unlock()
 
 	parent := fs.getInodeOrDie(op.Parent)
 
@@ -741,6 +768,9 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 		"opContext": op.OpContext,
 	})
 
+	// fs.mu.Lock()
+	// defer fs.mu.Unlock()
+
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -758,6 +788,9 @@ func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymli
 		"opContext": op.OpContext,
 	})
 
+	// fs.mu.Lock()
+	// defer fs.mu.Unlock()
+
 	return nil
 }
 
@@ -769,6 +802,7 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 		"opContext": op.OpContext,
 	})
 
+	// if fs.sync {
 	parent := fs.getInodeOrDie(op.Parent)
 
 	id, _, _ := parent.lookUpChild(op.Name)

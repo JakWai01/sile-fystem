@@ -38,6 +38,8 @@ func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l 
 		config.OpContext = ctx
 	}
 
+	// t.Dir = filepath.Join(os.TempDir(), "fuse_test")
+
 	var err error
 	t.Dir, err = ioutil.TempDir("", "fuse_test")
 	if err != nil {
@@ -57,6 +59,7 @@ func (t *TestSetup) initialize(ctx context.Context, config *fuse.MountConfig, l 
 		t.Server = filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), t.Dir, "/", l, afero.NewMemMapFs(), false)
 	}
 
+	// fuse.Unmount(t.Dir)
 	t.mfs, err = fuse.Mount(t.Dir, t.Server, config)
 	if err != nil {
 		return fmt.Errorf("Mount: %v", err)
