@@ -67,15 +67,6 @@ func (in *inode) removeChild(name string) {
 
 	in.attrs.Mtime = time.Now()
 
-	// i, ok := in.findChild(name)
-	// if !ok {
-	// 	panic(fmt.Sprintf("Unknown child: %s", name))
-	// }
-
-	// in.entries[i] = fuseutil.Dirent{
-	// 	Type:   fuseutil.DT_Unknown,
-	// 	Offset: fuseops.DirOffset(i + 1),
-	// }
 	newEntries := make([]fuseutil.Dirent, 0)
 
 	for _, child := range in.entries {

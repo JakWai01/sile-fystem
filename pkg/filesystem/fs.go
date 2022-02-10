@@ -73,9 +73,6 @@ func (fs *fileSystem) LookUpInode(ctx context.Context, op *fuseops.LookUpInodeOp
 		"OpContext": op.OpContext,
 	})
 
-	// fs.mu.Lock()
-	// defer fs.mu.Unlock()
-
 	parent := fs.getInodeOrDie(op.Parent)
 
 	childId, _, ok := parent.lookUpChild(op.Name)
@@ -180,7 +177,6 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	}
 
 	if fs.inodes[op.Inode] == nil {
-		fmt.Println("Not inside")
 		return fuse.EEXIST
 	}
 
@@ -734,9 +730,6 @@ func (fs *fileSystem) CreateLink(ctx context.Context, op *fuseops.CreateLinkOp) 
 		return fuse.EINVAL
 	}
 
-	// fs.mu.Lock()
-	// defer fs.mu.Unlock()
-
 	parent := fs.getInodeOrDie(op.Parent)
 
 	_, _, exists := parent.lookUpChild(op.Name)
@@ -768,9 +761,6 @@ func (fs *fileSystem) FlushFile(ctx context.Context, op *fuseops.FlushFileOp) (e
 		"opContext": op.OpContext,
 	})
 
-	// fs.mu.Lock()
-	// defer fs.mu.Unlock()
-
 	if op.OpContext.Pid == 0 {
 		return fuse.EINVAL
 	}
@@ -787,9 +777,6 @@ func (fs *fileSystem) CreateSymlink(ctx context.Context, op *fuseops.CreateSymli
 		"entry":     op.Entry,
 		"opContext": op.OpContext,
 	})
-
-	// fs.mu.Lock()
-	// defer fs.mu.Unlock()
 
 	return nil
 }
@@ -811,7 +798,6 @@ func (fs *fileSystem) Unlink(ctx context.Context, op *fuseops.UnlinkOp) error {
 
 	parent.removeChild(child.name)
 	delete(fs.inodes, id)
-	fmt.Println(id)
 
 	return fs.backend.Remove(child.path)
 }
