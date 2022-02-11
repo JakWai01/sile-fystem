@@ -320,7 +320,7 @@ func testCreateNewFileInSubDir(test *internal.TestSetup, t *testing.T) {
 
 	slice, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		panic(err)
+		t.Fail()
 	}
 
 	if contents != string(slice) {
@@ -645,7 +645,7 @@ func testChmod(test *internal.TestSetup, t *testing.T) {
 
 	err = ioutil.WriteFile(fileName, []byte(""), os.ModePerm)
 	if err != nil {
-		panic(err)
+		t.Fail()
 	}
 
 	err = os.Chmod(fileName, 0754)
@@ -654,7 +654,7 @@ func testChmod(test *internal.TestSetup, t *testing.T) {
 
 	fi, err := os.Stat(fileName)
 	if err != nil {
-		panic(err)
+		t.Fail()
 	}
 
 	if fi.Mode() != os.FileMode(0754) {

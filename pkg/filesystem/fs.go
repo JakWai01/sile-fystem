@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -112,14 +113,14 @@ func (fs *fileSystem) GetInodeAttributes(ctx context.Context, op *fuseops.GetIno
 
 		file, err := fs.backend.Open(inode.path)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		defer file.Close()
 
 		info, err := file.Stat()
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		op.Attributes = fuseops.InodeAttributes{
@@ -184,7 +185,7 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	if op.Mode != nil {
 		err = fs.backend.Chmod(inode.path, *op.Mode)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		op.Attributes.Mode = *op.Mode
 		inode.attrs.Mode = *op.Mode
@@ -193,7 +194,7 @@ func (fs *fileSystem) SetInodeAttributes(ctx context.Context, op *fuseops.SetIno
 	if op.Atime != nil && op.Mtime != nil {
 		err = fs.backend.Chtimes(inode.path, op.Attributes.Atime, op.Attributes.Mtime)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		op.Attributes.Atime = *op.Atime
 		op.Attributes.Mtime = *op.Mtime
@@ -244,7 +245,7 @@ func (fs *fileSystem) MkDir(ctx context.Context, op *fuseops.MkDirOp) error {
 
 	err := fs.backend.Mkdir(newPath, op.Mode)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	attrs := fuseops.InodeAttributes{
@@ -296,7 +297,7 @@ func (fs *fileSystem) MkNode(ctx context.Context, op *fuseops.MkNodeOp) error {
 
 	_, err := fs.backend.Create(newPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	now := time.Now()
@@ -364,12 +365,12 @@ func (fs *fileSystem) CreateFile(ctx context.Context, op *fuseops.CreateFileOp) 
 
 	fs.opened, err = fs.backend.Create(newPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	err = fs.backend.Chmod(newPath, op.Mode)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	now := time.Now()
@@ -429,7 +430,7 @@ func (fs *fileSystem) Rename(ctx context.Context, op *fuseops.RenameOp) error {
 
 	err := fs.backend.Rename(oldPath, newPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	childID, childType, ok := oldParent.lookUpChild(op.OldName)
@@ -479,7 +480,7 @@ func (fs *fileSystem) RmDir(ctx context.Context, op *fuseops.RmDirOp) error {
 	parent := fs.getInodeOrDie(op.Parent)
 
 	if err := fs.backend.Remove(op.Name); err != nil {
-		panic(err)
+		return err
 	}
 
 	childID, _, ok := parent.lookUpChild(op.Name)
@@ -523,7 +524,7 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 		fs.mu.Lock()
 		file, err = fs.backend.Open(inode.path)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		fs.op.Lock()
@@ -533,11 +534,11 @@ func (fs *fileSystem) OpenDir(ctx context.Context, op *fuseops.OpenDirOp) error 
 
 		info, err := file.Stat()
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		if !info.IsDir() {
-			panic("Found non-dir.")
+			return errors.New("Found non-dir.")
 		}
 	}
 
@@ -566,7 +567,7 @@ func (fs *fileSystem) ReadDir(ctx context.Context, op *fuseops.ReadDirOp) error 
 	inode := fs.getInodeOrDie(op.Inode)
 
 	if !inode.isDir() {
-		panic("ReadDir called on  non-directory.")
+		return errors.New("ReadDir called on non-directory")
 	}
 
 	var n int
@@ -624,11 +625,11 @@ func (fs *fileSystem) OpenFile(ctx context.Context, op *fuseops.OpenFileOp) erro
 
 		info, err := file.Stat()
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		if info.IsDir() {
-			panic("Found non-file.")
+			return errors.New("Found non-file")
 		}
 	}
 
@@ -659,7 +660,7 @@ func (fs *fileSystem) ReadFile(ctx context.Context, op *fuseops.ReadFileOp) erro
 
 		file, err := fs.backend.Open(inode.path)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer file.Close()
 
@@ -695,18 +696,18 @@ func (fs *fileSystem) WriteFile(ctx context.Context, op *fuseops.WriteFileOp) er
 	if !fs.sync {
 		file, err := fs.backend.OpenFile(inode.path, os.O_WRONLY, inode.attrs.Mode)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer file.Close()
 
 		_, err = file.WriteAt(op.Data, op.Offset)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	} else {
 		_, err := fs.opened.WriteAt(op.Data, op.Offset)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
@@ -884,7 +885,7 @@ func (fs *fileSystem) ReleaseFileHandle(ctx context.Context, op *fuseops.Release
 
 		if fs.opened != nil {
 			if err := fs.opened.Close(); err != nil {
-				panic(err)
+				return err
 			}
 		}
 		fs.opened = nil
@@ -906,7 +907,7 @@ func (fs *fileSystem) ReleaseDirHandle(ctx context.Context, op *fuseops.ReleaseD
 
 		if fs.opened != nil {
 			if err := fs.opened.Close(); err != nil {
-				panic(err)
+				return err
 			}
 		}
 		fs.opened = nil
@@ -923,13 +924,13 @@ func (fs *fileSystem) buildIndex(root string) error {
 
 	file, err := fs.backend.Open(root)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
 	info, err := file.Stat()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	attrs := fuseops.InodeAttributes{
@@ -948,7 +949,7 @@ func (fs *fileSystem) buildIndex(root string) error {
 	if info.IsDir() {
 		children, err := file.Readdir(-1)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		for _, child := range children {

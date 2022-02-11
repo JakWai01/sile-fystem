@@ -36,7 +36,7 @@ func Execute() error {
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	mountPath := filepath.Join(homeDir, filepath.Join("Documents", "mount"))

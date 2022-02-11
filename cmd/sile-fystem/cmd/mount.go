@@ -47,7 +47,7 @@ var mountCmd = &cobra.Command{
 
 		metadataPersister := persisters.NewMetadataPersister(viper.GetString(metadataFlag))
 		if err := metadataPersister.Open(); err != nil {
-			panic(err)
+			return err
 		}
 
 		metadataConfig := config.MetadataConfig{
@@ -116,7 +116,7 @@ var mountCmd = &cobra.Command{
 
 		root, err := stfs.Initialize("/", os.ModePerm)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		fs, err := cache.NewCacheFilesystem(
@@ -127,7 +127,7 @@ var mountCmd = &cobra.Command{
 			"",
 		)
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		serve := filesystem.NewFileSystem(posix.CurrentUid(), posix.CurrentGid(), viper.GetString(mountpoint), root, l, fs, true)
