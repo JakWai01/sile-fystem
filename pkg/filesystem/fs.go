@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"syscall"
@@ -874,7 +873,10 @@ func (fs *fileSystem) Fallocate(ctx context.Context, op *fuseops.FallocateOp) er
 }
 
 func (fs *fileSystem) ReleaseFileHandle(ctx context.Context, op *fuseops.ReleaseFileHandleOp) error {
-	log.Println("Releasing file")
+	fs.log.Debug("FUSE.ReleaseFileHandle", map[string]interface{}{
+		"handle":    op.Handle,
+		"opContext": op.OpContext,
+	})
 
 	if fs.sync {
 		fs.op.Lock()
@@ -893,8 +895,10 @@ func (fs *fileSystem) ReleaseFileHandle(ctx context.Context, op *fuseops.Release
 }
 
 func (fs *fileSystem) ReleaseDirHandle(ctx context.Context, op *fuseops.ReleaseDirHandleOp) error {
-	log.Println("Releasing dir")
-	log.Println(fs.sync)
+	fs.log.Debug("FUSE.ReleaseDirHandle", map[string]interface{}{
+		"handle":    op.Handle,
+		"opContext": op.OpContext,
+	})
 
 	if fs.sync {
 		fs.op.Lock()
