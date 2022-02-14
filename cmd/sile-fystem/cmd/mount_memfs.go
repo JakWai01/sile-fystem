@@ -29,6 +29,7 @@ var memFsCmd = &cobra.Command{
 			DisableDefaultPermissions: false,
 		}
 
+		fuse.Unmount(viper.GetString(mountpoint))
 		mfs, err := fuse.Mount(viper.GetString(mountpoint), serve, cfg)
 		if err != nil {
 			log.Fatalf("Mount: %v", err)
